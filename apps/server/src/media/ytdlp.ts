@@ -11,6 +11,7 @@ const baseFlags = {
   noPlaylist: true,
   noWarnings: true,
   ...(ffmpegPath ? { ffmpegLocation: ffmpegPath } : {}),
+  ...(config.cookiesFile ? { cookies: config.cookiesFile } : {}),
 };
 
 export async function analyzeMedia(url: string): Promise<AnalyzeResult> {

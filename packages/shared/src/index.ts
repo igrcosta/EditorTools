@@ -56,6 +56,7 @@ export const ERROR_CODES = [
   'restricted',
   'unavailable',
   'geo_blocked',
+  'bot_check',
   'too_long',
   'too_large',
   'busy',

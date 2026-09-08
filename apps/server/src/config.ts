@@ -11,6 +11,12 @@ export const config = {
   trustProxy: process.env.TRUST_PROXY === '1',
   /** When set, the server also serves the built web app from this directory (single-port deploy). */
   webDist: process.env.WEB_DIST ?? null,
+  /**
+   * Optional path to a Netscape-format cookies.txt passed to yt-dlp (--cookies).
+   * Used to get past anti-bot walls on datacenter IPs. Mount as a secret file in
+   * production; never commit cookies to the repo.
+   */
+  cookiesFile: process.env.COOKIES_FILE ?? null,
   corsOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
 
   maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS ?? 2),

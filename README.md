@@ -52,6 +52,17 @@ Environment knobs (all optional): `HOST`, `PORT`, `WEB_DIST` (serve the web buil
 
 Free-tier caveats: the instance sleeps after ~15 min idle (first request takes ~1 min), and some platforms (notably YouTube) may throttle or block datacenter IPs, so cloud downloads can occasionally fail even when the same link works locally.
 
+### Getting past YouTube's anti-bot wall (cookies)
+
+YouTube blocks most datacenter IPs with a "confirm you're not a bot" wall. To authenticate the hosted instance:
+
+1. Create a **throwaway Google account** (do NOT use your personal account — automated use from a server IP can get an account flagged).
+2. Log into YouTube with it in your browser, then export cookies with a "cookies.txt" extension (Netscape format), e.g. *Get cookies.txt LOCALLY*.
+3. On Render: service → **Environment → Secret Files** → add a file named `cookies.txt` with that content (mounted at `/etc/secrets/cookies.txt`).
+4. Add env var `COOKIES_FILE=/etc/secrets/cookies.txt` and redeploy.
+
+Cookies are read by yt-dlp only, never logged, and never leave the server. Refresh the file when it expires (typically weeks).
+
 ## Legal note
 
 The downloader is intended for your own content, licensed material, or editing references. Respect each platform's terms of service and applicable copyright law — that responsibility is yours.

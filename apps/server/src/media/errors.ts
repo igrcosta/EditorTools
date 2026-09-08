@@ -3,6 +3,8 @@ import type { ApiError, ErrorCode } from '@editools/shared';
 const PATTERNS: Array<[RegExp, ErrorCode]> = [
   [/unsupported url/i, 'unsupported_url'],
   [/is not a valid url/i, 'invalid_url'],
+  // Anti-bot wall (typically hit from datacenter IPs) — must match before the generic "sign in" pattern.
+  [/confirm you.?re not a bot|not a robot|use --cookies|http error 429|too many requests/i, 'bot_check'],
   [/private video|sign in|login required|members-only|age.?restrict|confirm your age/i, 'restricted'],
   [/video unavailable|has been removed|does not exist|account.+terminated|no longer available/i, 'unavailable'],
   [/not available in your country|geo.?restrict|blocked in your/i, 'geo_blocked'],
@@ -27,6 +29,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   restricted: 'This media is private or requires a login.',
   unavailable: 'This media is unavailable or has been removed.',
   geo_blocked: 'This media is not available in this region.',
+  bot_check: "The platform is blocking our server with an anti-bot check. Try again later — some sources restrict cloud servers.",
   too_long: 'This media is too long to process.',
   too_large: 'This file is too large to process.',
   busy: 'Too many downloads are running. Try again in a moment.',
