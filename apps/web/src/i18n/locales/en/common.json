@@ -1,0 +1,28 @@
+{
+  "appName": "EDITOOLS",
+  "tagline": "Your editing toolbox.",
+  "subtitle": "Do the boring work faster.",
+  "comingSoon": "Coming soon",
+  "footer": {
+    "privacy": "No accounts. No tracking. Files are deleted after processing.",
+    "legal": "For your own or licensed content — respect each platform's terms."
+  },
+  "tools": {
+    "download": {
+      "title": "Download Media",
+      "description": "Save video or audio from a link"
+    },
+    "convert": {
+      "title": "Convert Files",
+      "description": "Change formats without the hassle"
+    },
+    "fixAudio": {
+      "title": "Fix Audio",
+      "description": "Remove noise and normalize loudness"
+    },
+    "trimAudio": {
+      "title": "Trim Audio",
+      "description": "Cut and export audio regions"
+    }
+  }
+}
