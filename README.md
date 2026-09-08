@@ -37,8 +37,22 @@ npm run dev
 ```
 apps/web        React + Vite + Tailwind SPA
 apps/server     Fastify API (yt-dlp downloader)
-packages/shared TypeScript contracts shared by both
+apps/desktop    Electron shell embedding the server + web build
+packages/shared TypeScript contracts shared by all
 ```
+
+## Desktop app
+
+The desktop app is the yt-dlp-style distribution model: Editools runs entirely on the user's machine (their IP, their responsibility), which also avoids the datacenter-IP blocking that affects the hosted downloader.
+
+```bash
+npm run desktop:dev    # run the desktop app in development
+npm run desktop:dist   # build the Windows installer (apps/desktop/release/)
+```
+
+The Electron main process boots the same Fastify server on a random localhost port and loads the same web UI; yt-dlp and ffmpeg are bundled as resources. "Save file" drops results into the user's Downloads folder.
+
+Note: when launching from a terminal spawned by an Electron-based IDE (VS Code), unset `ELECTRON_RUN_AS_NODE` first or the app starts as plain Node.
 
 ## Deployment (Render.com free tier)
 

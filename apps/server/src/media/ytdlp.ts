@@ -1,11 +1,13 @@
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import youtubedl from 'youtube-dl-exec';
+import youtubedlPkg from 'youtube-dl-exec';
 import ffmpegStatic from 'ffmpeg-static';
 import type { AnalyzeResult, OutputFormat, QualityOption } from '@editools/shared';
 import { config } from '../config';
 
-const ffmpegPath = ffmpegStatic as unknown as string | null;
+// Packaged builds (desktop app) point at bundled binaries via env vars.
+const youtubedl = process.env.YTDLP_PATH ? youtubedlPkg.create(process.env.YTDLP_PATH) : youtubedlPkg;
+const ffmpegPath = process.env.FFMPEG_PATH ?? (ffmpegStatic as unknown as string | null);
 
 const baseFlags = {
   noPlaylist: true,

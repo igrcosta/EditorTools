@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @editools/server\" \"npm run dev -w @editools/web\"",
     "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "desktop:dev": "npm run build -w @editools/web && npm run build:main -w @editools/desktop && electron apps/desktop",
+    "desktop:dist": "npm run build -w @editools/web && npm run build:main -w @editools/desktop && electron-builder --projectDir apps/desktop"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
