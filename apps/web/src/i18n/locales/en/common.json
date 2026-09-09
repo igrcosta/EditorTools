@@ -3,6 +3,14 @@
   "tagline": "Your editing toolbox.",
   "subtitle": "Do the boring work faster.",
   "comingSoon": "Coming soon",
+  "job": {
+    "starting": "Starting…",
+    "queued": "Waiting for a free slot…",
+    "working": "Processing…",
+    "cancel": "Cancel",
+    "savedAutomatically": "Done — saved to your downloads",
+    "saveAgain": "Save again"
+  },
   "footer": {
     "privacy": "No accounts. No tracking. Files are deleted after processing.",
     "legal": "For your own or licensed content — respect each platform's terms."

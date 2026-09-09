@@ -45,6 +45,9 @@ export interface DesktopSettings {
 
 export const api = {
   analyze: (url: string) => request<AnalyzeResult>('/api/analyze', jsonPost({ url })),
+  /** Multipart upload to a tool endpoint (converter/audio); returns the created job. */
+  uploadAndStart: (path: string, form: FormData) =>
+    request<DownloadStarted>(path, { method: 'POST', body: form }),
   startDownload: (req: DownloadRequest) => request<DownloadStarted>('/api/download', jsonPost(req)),
   getJob: (id: string) => request<JobState>(`/api/jobs/${id}`),
   cancelJob: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),

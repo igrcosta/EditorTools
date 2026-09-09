@@ -1,0 +1,30 @@
+{
+  "title": "Fix Audio",
+  "description": "Remove background noise and normalize loudness for your platform — tuned to keep voices natural.",
+  "dropLabel": "Drop your recording here or click to browse",
+  "dropHint": "Audio or video — the audio track is processed",
+  "changeFile": "Change file",
+  "noiseTitle": "Noise removal",
+  "noise": {
+    "off": "Off",
+    "light": "Light",
+    "balanced": "Balanced",
+    "strong": "Strong"
+  },
+  "loudnessTitle": "Normalize loudness for",
+  "loudness": {
+    "off": "Off",
+    "youtube": "YouTube",
+    "social": "TikTok / Reels",
+    "podcast": "Podcast"
+  },
+  "outputTitle": "Output",
+  "output": {
+    "wav": "WAV · lossless",
+    "mp3": "MP3"
+  },
+  "nothingSelected": "Turn on noise removal or normalization to process.",
+  "process": "Process audio",
+  "processAgain": "Process again",
+  "uploading": "Reading file…"
+}

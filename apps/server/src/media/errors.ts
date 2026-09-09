@@ -35,6 +35,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   busy: 'Too many downloads are running. Try again in a moment.',
   not_found: 'This job no longer exists.',
   canceled: 'The download was canceled.',
+  invalid_file: "We couldn't read this file. Check the file and options and try again.",
   download_failed: "We couldn't process this media. It may be unsupported or temporarily unavailable.",
 };
 

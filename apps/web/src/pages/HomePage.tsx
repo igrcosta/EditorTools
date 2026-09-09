@@ -8,9 +8,9 @@ interface Tool {
 
 const TOOLS: Tool[] = [
   { key: 'download', to: '/download' },
-  { key: 'convert' },
-  { key: 'fixAudio' },
-  { key: 'trimAudio' },
+  { key: 'convert', to: '/convert' },
+  { key: 'fixAudio', to: '/audio-fix' },
+  { key: 'trimAudio', to: '/trim-audio' },
 ];
 
 export function HomePage() {

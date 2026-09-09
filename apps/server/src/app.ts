@@ -2,12 +2,15 @@ import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { config } from './config';
 import { apiError } from './media/errors';
 import { setJobLogger, startSweeper } from './media/jobs';
 import { registerAnalyzeRoute } from './routes/analyze';
+import { registerAudioRoutes } from './routes/audio';
+import { registerConvertRoute } from './routes/convert';
 import { registerDownloadRoute } from './routes/download';
 import { registerJobRoutes } from './routes/jobs';
 
@@ -32,11 +35,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
   await app.register(cors, { origin: [...config.corsOrigins] });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
+  await app.register(multipart, {
+    limits: { fileSize: config.maxUploadBytes, files: 1, fields: 10 },
+  });
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
   registerAnalyzeRoute(app);
   registerDownloadRoute(app);
+  registerConvertRoute(app);
+  registerAudioRoutes(app);
   registerJobRoutes(app);
 
   // Single-port deploy: serve the built web app alongside the API.

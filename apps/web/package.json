@@ -15,7 +15,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^15.1.0",
-    "react-router-dom": "^7.0.0"
+    "react-router-dom": "^7.0.0",
+    "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

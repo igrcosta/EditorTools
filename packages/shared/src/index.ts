@@ -51,6 +51,17 @@ export interface JobState {
   error?: ErrorCode;
 }
 
+export const CONVERT_FORMATS = ['mp4', 'mov', 'mkv', 'webm', 'mp3', 'wav', 'm4a'] as const;
+export type ConvertFormat = (typeof CONVERT_FORMATS)[number];
+
+export const NOISE_LEVELS = ['off', 'light', 'balanced', 'strong'] as const;
+export type NoiseLevel = (typeof NOISE_LEVELS)[number];
+
+export const LOUDNESS_PRESETS = ['off', 'youtube', 'social', 'podcast'] as const;
+export type LoudnessPreset = (typeof LOUDNESS_PRESETS)[number];
+
+export type AudioFixOutput = 'wav' | 'mp3';
+
 export const ERROR_CODES = [
   'invalid_url',
   'unsupported_scheme',
@@ -67,6 +78,7 @@ export const ERROR_CODES = [
   'not_found',
   'canceled',
   'download_failed',
+  'invalid_file',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

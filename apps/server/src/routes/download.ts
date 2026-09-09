@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { DownloadStarted } from '@editools/shared';
 import { apiError } from '../media/errors';
 import { createJob } from '../media/jobs';
+import { downloadTask } from '../media/tasks';
 import { assertSafeUrl, UrlGuardError } from '../security/urlGuard';
 
 const bodySchema = z.object({
@@ -25,12 +26,14 @@ export function registerDownloadRoute(app: FastifyInstance): void {
       return reply.code(400).send(apiError(code));
     }
 
-    const job = await createJob({
-      url: url.toString(),
-      output: parsed.data.output,
-      height: parsed.data.height,
-      title: parsed.data.title,
-    });
+    const job = await createJob(
+      downloadTask({
+        url: url.toString(),
+        output: parsed.data.output,
+        height: parsed.data.height,
+        title: parsed.data.title,
+      }),
+    );
     if (job === 'busy') return reply.code(429).send(apiError('busy'));
 
     const started: DownloadStarted = { jobId: job.id };

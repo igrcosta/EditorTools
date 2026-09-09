@@ -1,6 +1,6 @@
 # Editools — Development Guide
 
-Toolbox web app for video editors. Full product spec lives in `Editools_Product_Development_Specification.md` (kept by the founder, not in this repo). Implementation plan history: Phase 0 (foundation) + Phase 1 (Media Downloader) are built; Converter and Audio tools are future phases.
+Toolbox web app for video editors. Full product spec lives in `Editools_Product_Development_Specification.md` (kept by the founder, not in this repo). Built: foundation, Media Downloader (yt-dlp, multi-platform), Converter/Audio Extractor, Fix Audio (noise removal + loudness), Trim Audio (waveform) — all four tools ship in the desktop app. Processing runs on the embedded native ffmpeg via the shared task/job layer (`media/tasks.ts` + `media/jobs.ts`), not ffmpeg.wasm; a future cloud-web version would need wasm or uploads.
 
 ## Commands
 
@@ -11,8 +11,8 @@ Toolbox web app for video editors. Full product spec lives in `Editools_Product_
 
 ## Architecture
 
-- `packages/shared/src/index.ts` — API contracts (`AnalyzeResult`, `DownloadRequest`, `JobState`, error codes). Both apps import `@editools/shared`. Change contracts here first.
-- `apps/server/src/media/` — the shared processing layer (spec §25). `ytdlp.ts` wraps yt-dlp, `jobs.ts` owns job state + temp dirs + TTL cleanup, `errors.ts` maps technical errors to error codes. Future server-side tools must reuse this layer, not fork it.
+- `packages/shared/src/index.ts` — API contracts (`AnalyzeResult`, `DownloadRequest`, `JobState`, formats, error codes). Both apps import `@editools/shared`. Change contracts here first.
+- `apps/server/src/media/` — the shared processing layer (spec §25). `jobs.ts` owns the queue, job state, temp dirs, transparent retries and TTL cleanup; work units are `JobTask`s built in `tasks.ts` (download, convert with remux→transcode fallback, audio fix, trim); `ytdlp.ts` wraps yt-dlp, `ffmpeg.ts` wraps ffmpeg with monotonic progress, `errors.ts` maps technical errors to codes. New tools = new task in `tasks.ts` + thin route, never a parallel system.
 - `apps/server/src/security/urlGuard.ts` — SSRF guard. Every user-provided URL MUST pass through `assertSafeUrl` before reaching yt-dlp.
 - `apps/web/src/features/<tool>/` — one folder per tool (page + hook). Design system primitives in `apps/web/src/components/`.
 - UI strings: always through i18next (`apps/web/src/i18n/locales/en/`). English only for now; structure is ready for PT-BR.

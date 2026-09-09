@@ -6,8 +6,17 @@ import { cancelJob, getJob, toJobState } from '../media/jobs';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CONTENT_TYPES: Record<string, string> = {
-  mp4: 'video/mp4',
-  mp3: 'audio/mpeg',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.mkv': 'video/x-matroska',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/opus',
+  '.aac': 'audio/aac',
 };
 
 export function registerJobRoutes(app: FastifyInstance): void {
@@ -23,8 +32,9 @@ export function registerJobRoutes(app: FastifyInstance): void {
       return reply.code(404).send(apiError('not_found'));
     }
     const asciiFallback = job.filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, "'");
+    const ext = job.filename.slice(job.filename.lastIndexOf('.')).toLowerCase();
     return reply
-      .header('content-type', CONTENT_TYPES[job.output] ?? 'application/octet-stream')
+      .header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream')
       .header('content-length', job.fileSizeBytes ?? undefined)
       .header(
         'content-disposition',

@@ -1,27 +1,44 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { ErrorCode, JobStage, JobState, JobStatus, OutputFormat } from '@editools/shared';
+import type { ErrorCode, JobStage, JobState, JobStatus } from '@editools/shared';
 import { config } from '../config';
 import { mapYtdlpError, stderrOf } from './errors';
-import { runDownload, type DownloadHandle } from './ytdlp';
+import type { ProcessHandle } from './ffmpeg';
+
+export interface JobCallbacks {
+  onProgress: (percent: number) => void;
+  onStage: (stage: JobStage) => void;
+}
+
+/**
+ * A unit of processing work (download, conversion, audio fix, trim…).
+ * Tasks share the queue, progress reporting, cancellation, retries and
+ * temp-dir lifecycle — the "shared processing layer" of the spec.
+ */
+export interface JobTask {
+  /** Display name used (sanitized) for the result filename. */
+  title?: string;
+  /** Total attempts allowed; generic failures are retried transparently up to this. */
+  maxAttempts: number;
+  start(tempDir: string, callbacks: JobCallbacks): ProcessHandle;
+  /** Absolute path of the produced file, or undefined if nothing was produced. */
+  resolveOutput(tempDir: string): Promise<string | undefined>;
+}
 
 export interface Job {
   id: string;
   status: JobStatus;
   stage?: JobStage;
   progress: number | null;
-  url: string;
-  output: OutputFormat;
-  height?: number;
-  title?: string;
   tempDir: string;
+  task: JobTask;
   filePath?: string;
   filename?: string;
   fileSizeBytes?: number;
   error?: ErrorCode;
-  handle?: DownloadHandle;
+  handle?: ProcessHandle;
   canceled: boolean;
   attempts: number;
   createdAt: number;
@@ -37,24 +54,19 @@ const jobs = new Map<string, Job>();
 const queue: Job[] = [];
 let running = 0;
 
-export async function createJob(req: {
-  url: string;
-  output: OutputFormat;
-  height?: number;
-  title?: string;
-}): Promise<Job | 'busy'> {
+/**
+ * Queues a task. Pass `tempDir` when the route already staged files (uploads)
+ * into a directory created with createTempDir(); otherwise one is created.
+ */
+export async function createJob(task: JobTask, tempDir?: string): Promise<Job | 'busy'> {
   if (running + queue.length >= config.maxConcurrentJobs + config.maxQueuedJobs) return 'busy';
 
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'editools-'));
   const job: Job = {
     id: randomUUID(),
     status: 'queued',
     progress: null,
-    url: req.url,
-    output: req.output,
-    height: req.height,
-    title: req.title,
-    tempDir,
+    tempDir: tempDir ?? (await createTempDir()),
+    task,
     canceled: false,
     attempts: 0,
     createdAt: Date.now(),
@@ -63,6 +75,10 @@ export async function createJob(req: {
   queue.push(job);
   pump();
   return job;
+}
+
+export function createTempDir(): Promise<string> {
+  return mkdtemp(path.join(os.tmpdir(), 'editools-'));
 }
 
 export function getJob(id: string): Job | undefined {
@@ -109,25 +125,23 @@ function start(job: Job): void {
   running += 1;
   job.status = 'running';
   job.stage = 'downloading';
-  job.handle = runDownload(
-    { url: job.url, output: job.output, height: job.height, tempDir: job.tempDir },
-    {
-      onProgress: (percent) => {
-        job.progress = percent;
-      },
-      onStage: (stage) => {
-        job.stage = stage;
-      },
+  job.handle = job.task.start(job.tempDir, {
+    onProgress: (percent) => {
+      job.progress = percent;
     },
-  );
+    onStage: (stage) => {
+      job.stage = stage;
+    },
+  });
   job.handle.done
     .then(() => finalize(job))
     .catch(async (err: unknown) => {
       const code = job.canceled ? 'canceled' : mapYtdlpError(stderrOf(err));
-      log.debug({ jobId: job.id, attempt: job.attempts + 1, stderr: stderrOf(err) }, 'yt-dlp failed');
-      // Some sites fail intermittently (e.g. TikTok's anti-bot page roulette) —
-      // retry generic failures transparently before surfacing an error.
-      if (!job.canceled && code === 'download_failed' && job.attempts < 2) {
+      log.debug({ jobId: job.id, attempt: job.attempts + 1, stderr: stderrOf(err) }, 'job failed');
+      // Some work fails transiently (TikTok's anti-bot roulette) or needs a
+      // different strategy on retry (remux → transcode) — retry generic
+      // failures transparently before surfacing an error.
+      if (!job.canceled && code === 'download_failed' && job.attempts + 1 < job.task.maxAttempts) {
         job.attempts += 1;
         job.status = 'queued';
         job.progress = null;
@@ -146,30 +160,24 @@ function start(job: Job): void {
 }
 
 async function finalize(job: Job): Promise<void> {
-  const expectedExt = `.${job.output}`;
-  let file: string | undefined;
-  try {
-    const entries = await readdir(job.tempDir);
-    file = entries.find((f) => f.toLowerCase().endsWith(expectedExt));
-  } catch {
-    file = undefined;
-  }
+  const output = await job.task.resolveOutput(job.tempDir).catch(() => undefined);
   if (job.canceled) {
     job.status = 'error';
     job.error = 'canceled';
     await cleanupTempDir(job);
     return;
   }
-  if (!file) {
-    // yt-dlp exited 0 without producing output (e.g. match-filter rejected it).
+  if (!output) {
+    // Exited 0 without producing output (e.g. match-filter rejected the media).
     job.status = 'error';
     job.error = 'download_failed';
     await cleanupTempDir(job);
     return;
   }
-  job.filePath = path.join(job.tempDir, file);
-  job.fileSizeBytes = (await stat(job.filePath)).size;
-  job.filename = sanitizeFilename(job.title, path.basename(file, expectedExt)) + expectedExt;
+  const ext = path.extname(output);
+  job.filePath = output;
+  job.fileSizeBytes = (await stat(output)).size;
+  job.filename = sanitizeFilename(job.task.title, path.basename(output, ext)) + ext;
   job.progress = 100;
   job.stage = undefined;
   job.status = 'done';
@@ -178,7 +186,6 @@ async function finalize(job: Job): Promise<void> {
 /** Strips path separators, control chars and Windows-reserved characters from a display filename. */
 export function sanitizeFilename(name: string | undefined, fallback: string): string {
   const cleaned = (name ?? '')
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, '')
     .replace(/[\\/:*?"<>|]/g, '')
     .replace(/\.{2,}/g, '.')

@@ -30,4 +30,6 @@ export const config = {
   maxDurationSeconds: Number(process.env.MAX_DURATION_SECONDS ?? 4 * 3600),
   /** Passed to yt-dlp --max-filesize. */
   maxFilesize: process.env.MAX_FILESIZE ?? '6G',
+  /** Upload cap for converter/audio tools (local uploads are instant on desktop). */
+  maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 ** 3),
 } as const;
