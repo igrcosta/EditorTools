@@ -252,29 +252,7 @@ export function SilenceCutPage() {
               </span>
             </div>
           )}
-          {waveReady && mode !== 'off' && sample && (
-            <p className="flex items-center gap-2 text-xs text-zinc-400">
-              <span className="rounded border border-accent/40 bg-accent/10 px-2 py-1">
-                {t('sampleChip', {
-                  from: formatDuration(Math.floor(sample.start)),
-                  to: formatDuration(Math.ceil(sample.end)),
-                  db: sample.thresholdDb,
-                })}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSample(null)}
-                className="cursor-pointer text-zinc-500 hover:text-zinc-300"
-              >
-                ✕ {t('sampleClear')}
-              </button>
-            </p>
-          )}
-          {waveReady && (
-            <p className="text-xs text-zinc-500">
-              {mode !== 'off' && !sample ? t('sampleHint') : t('dragHint')}
-            </p>
-          )}
+          {waveReady && <p className="text-xs text-zinc-500">{t('dragHint')}</p>}
 
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('modeTitle')}</p>
@@ -297,6 +275,47 @@ export function SilenceCutPage() {
             </div>
             <p className="mt-2 text-xs text-zinc-500">{t(`modeHint.${mode}`)}</p>
           </div>
+
+          {mode !== 'off' && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                {t('thresholdTitle')}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSample(null)}
+                  disabled={busy}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    !sample
+                      ? 'border-accent text-accent'
+                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}
+                >
+                  {t('thresholdAuto')}
+                </button>
+                {sample && (
+                  <span className="inline-flex items-center gap-2 rounded-md border border-accent px-3 py-1.5 text-sm text-accent">
+                    {t('thresholdSample', {
+                      from: formatDuration(Math.floor(sample.start)),
+                      to: formatDuration(Math.ceil(sample.end)),
+                      db: sample.thresholdDb,
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setSample(null)}
+                      disabled={busy}
+                      className="cursor-pointer text-accent/70 hover:text-accent"
+                      aria-label={t('sampleClear')}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+              </div>
+              {!sample && <p className="mt-2 text-xs text-zinc-500">{t('sampleHint')}</p>}
+            </div>
+          )}
 
           {nothingToDo && <p className="text-sm text-zinc-500">{t('nothingToDo')}</p>}
 

@@ -11,15 +11,17 @@
   "pause": "Pause",
   "selected": "keeping",
   "sampleButton": "Mark as silence sample",
-  "sampleHint": "For more precise cuts: select a moment with only background noise, then click \"Mark as silence sample\" — the cuts calibrate to your recording.",
-  "sampleChip": "Calibrated from {{from}}–{{to}} · cutting below {{db}} dB",
+  "sampleHint": "For more precise cuts: select a moment with only background noise on the waveform, then click \"Mark as silence sample\".",
   "sampleClear": "clear",
-  "modeTitle": "Cut silences",
+  "thresholdTitle": "What counts as silence",
+  "thresholdAuto": "Automatic",
+  "thresholdSample": "Your sample · {{from}}–{{to}} · below {{db}} dB",
+  "modeTitle": "Cut silences · minimum pause",
   "mode": {
     "off": "Off · just trim",
-    "gentle": "Only long pauses",
-    "balanced": "Balanced",
-    "aggressive": "Aggressive"
+    "gentle": "Only long pauses · >1s",
+    "balanced": "Balanced · >0.6s",
+    "aggressive": "Aggressive · >0.35s"
   },
   "modeHint": {
     "off": "No silence cutting — exports exactly the selected region.",
