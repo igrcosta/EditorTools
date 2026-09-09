@@ -12,7 +12,7 @@ export function HomePage() {
   const { t } = useTranslation();
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-black">
-      <DotField className="absolute inset-0" />
+      <DotField className="absolute inset-0" speed={1.4} />
       {/* Vignette so the field never competes with the copy. */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.75)_100%)]" />
 

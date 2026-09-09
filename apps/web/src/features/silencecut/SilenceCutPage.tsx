@@ -84,7 +84,7 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
       url,
       height: 96,
       waveColor: '#3f3f46',
-      progressColor: '#a78bfa',
+      progressColor: '#9146ff',
       cursorColor: '#e4e4e7',
       normalize: true,
       // Play through WebAudio — the same path that decodes the waveform —
@@ -99,7 +99,7 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
       const region = regions.addRegion({
         start: 0,
         end: total,
-        color: 'rgba(167, 139, 250, 0.16)',
+        color: 'rgba(145, 70, 255, 0.16)',
         drag: true,
         resize: true,
       });

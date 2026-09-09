@@ -8,14 +8,14 @@ import { useEffect, useRef } from 'react';
  */
 
 const CONFIG = {
-  loopSeconds: 12,
+  loopSeconds: 9,
   grid: {
     targetSpacing: 17, // px at dpr 1; grid density derives from viewport
     minSpacing: 13,
   },
   dots: {
     baseRadius: 0.9,
-    maxRadius: 3.1,
+    maxRadius: 3.4,
     minOpacity: 0.14,
     maxOpacity: 1,
   },
@@ -23,11 +23,11 @@ const CONFIG = {
     softness: 0.16,
     noiseAmount: 0.07,
     waveFrequency: 5,
-    waveAmount: 0.22,
+    waveAmount: 0.34,
   },
-  // Black + violet palette: dim dots are deep purple, hot dots near-white.
-  colorDim: [124, 90, 230] as const,
-  colorHot: [237, 233, 254] as const,
+  // Black + violet palette (#9146FF): dim dots deep purple, hot dots near-white.
+  colorDim: [110, 50, 205] as const,
+  colorHot: [240, 236, 255] as const,
 };
 
 const TAU = Math.PI * 2;
@@ -54,13 +54,13 @@ function hashNoise(ix: number, iy: number): number {
 /** Time-varying field parameters — every frequency is an integer multiple of the loop, so the loop is seamless. */
 function fieldParams(t: number, w: number) {
   return {
-    outerSize: 0.52 + 0.13 * Math.sin(w * t) + 0.05 * Math.sin(2 * w * t + 1.7),
-    innerRatio: 0.55 + 0.14 * Math.sin(2 * w * t + 0.9),
-    cornerRadius: 0.1 + 0.055 * Math.sin(3 * w * t + 4.2),
-    rotation: 0.24 * Math.sin(w * t + 2.6),
-    offsetX: 0.05 * Math.sin(2 * w * t + 5.1),
-    offsetY: 0.05 * Math.sin(w * t + 0.4),
-    wavePhase: w * 3 * t,
+    outerSize: 0.52 + 0.16 * Math.sin(w * t) + 0.06 * Math.sin(2 * w * t + 1.7),
+    innerRatio: 0.55 + 0.16 * Math.sin(2 * w * t + 0.9),
+    cornerRadius: 0.1 + 0.06 * Math.sin(3 * w * t + 4.2),
+    rotation: 0.3 * Math.sin(w * t + 2.6),
+    offsetX: 0.06 * Math.sin(2 * w * t + 5.1),
+    offsetY: 0.06 * Math.sin(w * t + 0.4),
+    wavePhase: w * 6 * t,
   };
 }
 
@@ -114,7 +114,10 @@ export function DotField({ className = '', speed = 1 }: DotFieldProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Reduced motion slows the field right down instead of freezing it —
+    // the animation is decorative and extremely low-contrast either way.
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const effectiveSpeed = speed * (reducedMotion ? 0.25 : 1);
 
     let width = 0;
     let height = 0;
@@ -157,7 +160,7 @@ export function DotField({ className = '', speed = 1 }: DotFieldProps) {
     const [dimR, dimG, dimB] = CONFIG.colorDim;
     const [hotR, hotG, hotB] = CONFIG.colorHot;
     const { baseRadius, maxRadius, minOpacity, maxOpacity } = CONFIG.dots;
-    const w = (TAU / CONFIG.loopSeconds) * speed;
+    const w = (TAU / CONFIG.loopSeconds) * effectiveSpeed;
     // The field is sampled on a square normalized space to keep the shape square.
     const renderFrame = (tSeconds: number) => {
       ctx.clearRect(0, 0, width, height);
@@ -184,21 +187,15 @@ export function DotField({ className = '', speed = 1 }: DotFieldProps) {
     rebuild();
 
     let frame = 0;
-    if (reducedMotion) {
-      renderFrame(2.4); // a pleasant static moment of the loop
-    } else {
-      const start = performance.now();
-      const tick = (now: number) => {
-        renderFrame(((now - start) / 1000) % (CONFIG.loopSeconds / Math.max(0.0001, speed)));
-        frame = requestAnimationFrame(tick);
-      };
+    const start = performance.now();
+    const period = CONFIG.loopSeconds / Math.max(0.0001, effectiveSpeed);
+    const tick = (now: number) => {
+      renderFrame(((now - start) / 1000) % period);
       frame = requestAnimationFrame(tick);
-    }
+    };
+    frame = requestAnimationFrame(tick);
 
-    const observer = new ResizeObserver(() => {
-      rebuild();
-      if (reducedMotion) renderFrame(2.4);
-    });
+    const observer = new ResizeObserver(() => rebuild());
     observer.observe(container);
 
     return () => {
