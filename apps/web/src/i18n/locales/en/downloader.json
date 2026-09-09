@@ -1,6 +1,7 @@
 {
   "title": "Download Media",
   "description": "Paste a link, pick a quality, get your file.",
+  "platformsHint": "Works with YouTube, TikTok, Instagram, X/Twitter, Reddit and many more.",
   "urlPlaceholder": "https://youtube.com/watch?v=…",
   "analyze": "Analyze",
   "analyzing": "Analyzing…",

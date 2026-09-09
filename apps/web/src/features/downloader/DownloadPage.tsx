@@ -28,6 +28,7 @@ export function DownloadPage() {
 
   const [url, setUrl] = useState('');
   const [output, setOutput] = useState<OutputFormat>(loadFormat);
+  const [height, setHeight] = useState<number | undefined>(undefined);
   const [desktop, setDesktop] = useState<DesktopSettings | null>(null);
 
   useEffect(() => {
@@ -42,11 +43,16 @@ export function DownloadPage() {
     void api.getDesktopSettings().then(setDesktop);
   }, []);
 
+  // Pre-select the recommended quality whenever a new analysis lands.
+  const recommended = dl.analysis?.qualities.find((q) => q.recommended)?.height;
+  useEffect(() => {
+    setHeight(recommended);
+  }, [recommended, dl.analysis]);
+
   const job = dl.job;
   const jobActive = job !== null && (job.status === 'queued' || job.status === 'running');
   const jobDone = job !== null && job.status === 'done';
   const jobFailed = job !== null && job.status === 'error';
-  const busy = dl.analyzing || dl.starting || jobActive;
 
   // When a job finishes, save the file automatically (desktop: straight into the
   // configured folder; browser: the regular download flow).
@@ -61,21 +67,9 @@ export function DownloadPage() {
     }
   }, [jobDone, job]);
 
-  const onSubmit = (e: FormEvent) => {
+  const onAnalyze = (e: FormEvent) => {
     e.preventDefault();
-    if (url.trim() && !busy) void dl.run(url.trim(), output);
-  };
-
-  const onSelectFormat = (fmt: OutputFormat) => {
-    setOutput(fmt);
-    if (dl.analysis && (jobActive || jobDone) && fmt !== dl.output) {
-      void dl.restart(fmt, dl.height);
-    }
-  };
-
-  const onSelectQuality = (height: number) => {
-    if (!dl.analysis || height === dl.height) return;
-    void dl.restart('mp4', height);
+    if (url.trim() && !dl.analyzing && !jobActive) void dl.analyze(url.trim());
   };
 
   const onReset = () => {
@@ -103,40 +97,22 @@ export function DownloadPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
         <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
+        <p className="mt-1 text-xs text-zinc-500">{t('platformsHint')}</p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <div className="flex gap-2">
-          <Input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={t('urlPlaceholder')}
-            disabled={busy}
-            autoFocus
-          />
-          <Button type="submit" disabled={!url.trim() || busy}>
-            {dl.analyzing || dl.starting ? <Spinner /> : null}
-            {dl.analyzing ? t('analyzing') : t('download')}
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          {(['mp4', 'mp3'] as const).map((fmt) => (
-            <button
-              key={fmt}
-              type="button"
-              onClick={() => onSelectFormat(fmt)}
-              disabled={dl.analyzing || dl.starting}
-              className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                output === fmt
-                  ? 'border-accent text-accent'
-                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
-              }`}
-            >
-              {t(`format.${fmt}`)}
-            </button>
-          ))}
-        </div>
+      <form onSubmit={onAnalyze} className="flex gap-2">
+        <Input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder={t('urlPlaceholder')}
+          disabled={dl.analyzing}
+          autoFocus
+        />
+        <Button type="submit" disabled={!url.trim() || dl.analyzing || jobActive}>
+          {dl.analyzing ? <Spinner /> : null}
+          {dl.analyzing ? t('analyzing') : t('analyze')}
+        </Button>
       </form>
 
       {dl.errorCode && (
@@ -173,20 +149,43 @@ export function DownloadPage() {
             </div>
           </div>
 
-          {dl.output === 'mp4' && dl.analysis.qualities.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {t('format.label')}
+            </p>
+            <div className="flex gap-2">
+              {(['mp4', 'mp3'] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setOutput(fmt)}
+                  disabled={jobActive || dl.starting}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    output === fmt
+                      ? 'border-accent text-accent'
+                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  }`}
+                >
+                  {t(`format.${fmt}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {output === 'mp4' && dl.analysis.qualities.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                {t('quality')} <span className="normal-case">· {t('qualityHint')}</span>
+                {t('quality')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {dl.analysis.qualities.map((q) => (
                   <button
                     key={q.height}
                     type="button"
-                    onClick={() => onSelectQuality(q.height)}
-                    disabled={dl.starting}
+                    onClick={() => setHeight(q.height)}
+                    disabled={jobActive || dl.starting}
                     className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                      dl.height === q.height
+                      height === q.height
                         ? 'border-accent text-accent'
                         : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
                     }`}
@@ -201,18 +200,27 @@ export function DownloadPage() {
             </div>
           )}
 
-          {(jobActive || dl.starting) && (
+          {!jobActive && !jobDone && (
+            <Button
+              className="w-full"
+              disabled={dl.starting}
+              onClick={() => void dl.start(output, height)}
+            >
+              {dl.starting ? <Spinner /> : null}
+              {dl.starting ? t('starting') : t('download')}
+            </Button>
+          )}
+
+          {jobActive && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm text-zinc-400">
-                <span>{dl.starting ? t('starting') : runningLabel}</span>
-                {job?.status === 'running' && job.progress !== null && <span>{job.progress}%</span>}
+                <span>{runningLabel}</span>
+                {job.status === 'running' && job.progress !== null && <span>{job.progress}%</span>}
               </div>
-              <ProgressBar value={job?.status === 'running' ? job.progress : null} />
-              {jobActive && (
-                <Button variant="secondary" onClick={dl.cancel}>
-                  {t('cancel')}
-                </Button>
-              )}
+              <ProgressBar value={job.status === 'running' ? job.progress : null} />
+              <Button variant="secondary" onClick={dl.cancel}>
+                {t('cancel')}
+              </Button>
             </div>
           )}
 
@@ -226,6 +234,7 @@ export function DownloadPage() {
                 )}
               </p>
               <div className="flex gap-2">
+                <Button onClick={() => void dl.start(output, height)}>{t('download')}</Button>
                 <a
                   href={api.jobFileUrl(job.id)}
                   download
@@ -233,7 +242,9 @@ export function DownloadPage() {
                 >
                   {t('saveAgain')}
                 </a>
-                <Button onClick={onReset}>{t('downloadAnother')}</Button>
+                <Button variant="secondary" onClick={onReset}>
+                  {t('downloadAnother')}
+                </Button>
               </div>
             </div>
           )}

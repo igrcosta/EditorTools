@@ -24,19 +24,24 @@ export async function analyzeMedia(url: string): Promise<AnalyzeResult> {
   )) as Record<string, unknown>;
 
   const formats = Array.isArray(info.formats) ? (info.formats as Array<Record<string, unknown>>) : [];
-  const heights = [
-    ...new Set(
-      formats
-        .filter((f) => f && f.vcodec && f.vcodec !== 'none' && typeof f.height === 'number' && (f.height as number) >= 144)
-        .map((f) => f.height as number),
-    ),
-  ].sort((a, b) => b - a);
-
-  const recommended = pickRecommended(heights);
-  const qualities: QualityOption[] = heights.map((h) => ({
-    height: h,
-    label: `${h}p`,
-    recommended: h === recommended,
+  // Label by the SMALLER dimension ("1080p" convention): a vertical 1080x1920
+  // video has height 1920 but everyone calls it 1080p. The height is still what
+  // yt-dlp's format filter needs.
+  const byHeight = new Map<number, number>();
+  for (const f of formats) {
+    if (!f || !f.vcodec || f.vcodec === 'none' || typeof f.height !== 'number') continue;
+    const height = f.height as number;
+    const width = typeof f.width === 'number' ? (f.width as number) : height;
+    const label = Math.min(width, height);
+    if (label < 144) continue;
+    byHeight.set(height, label);
+  }
+  const entries = [...byHeight.entries()].sort((a, b) => b[1] - a[1]); // [height, labelDim] desc
+  const recommendedHeight = pickRecommended(entries);
+  const qualities: QualityOption[] = entries.map(([height, labelDim]) => ({
+    height,
+    label: `${labelDim}p`,
+    recommended: height === recommendedHeight,
   }));
 
   const thumbnail = typeof info.thumbnail === 'string' && /^https:\/\//.test(info.thumbnail) ? info.thumbnail : null;
@@ -51,10 +56,10 @@ export async function analyzeMedia(url: string): Promise<AnalyzeResult> {
 }
 
 /** 1080p when available, otherwise the best quality below it, otherwise the smallest available. */
-function pickRecommended(heightsDesc: number[]): number | null {
-  if (heightsDesc.length === 0) return null;
-  const under = heightsDesc.filter((h) => h <= 1080);
-  return under.length > 0 ? under[0] : heightsDesc[heightsDesc.length - 1];
+function pickRecommended(entriesDesc: Array<[height: number, labelDim: number]>): number | null {
+  if (entriesDesc.length === 0) return null;
+  const under = entriesDesc.filter(([, labelDim]) => labelDim <= 1080);
+  return under.length > 0 ? under[0][0] : entriesDesc[entriesDesc.length - 1][0];
 }
 
 export interface DownloadHandle {
@@ -83,8 +88,11 @@ export function runDownload(
 
   if (opts.output === 'mp4') {
     const h = opts.height ?? 1080;
-    flags.format = `bv*[height<=${h}][ext=mp4]+ba[ext=m4a]/b[height<=${h}]`;
+    // Fallback chain covers sites without separate mp4/m4a streams (TikTok,
+    // Instagram, X…); remux guarantees the final container is mp4 either way.
+    flags.format = `bv*[height<=${h}][ext=mp4]+ba[ext=m4a]/bv*[height<=${h}]+ba/b[height<=${h}]/b`;
     flags.mergeOutputFormat = 'mp4';
+    flags.remuxVideo = 'mp4';
   } else {
     flags.format = 'ba/b';
     flags.extractAudio = true;
