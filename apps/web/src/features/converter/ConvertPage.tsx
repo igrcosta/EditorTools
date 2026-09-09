@@ -11,7 +11,25 @@ import { formatBytes } from '../../lib/format';
 import { useJobRunner } from '../../lib/useJobRunner';
 
 const VIDEO_FORMATS: ConvertFormat[] = ['mp4', 'mov', 'mkv', 'webm'];
-const AUDIO_FORMATS: ConvertFormat[] = ['mp3', 'wav', 'm4a'];
+const AUDIO_FORMATS: ConvertFormat[] = ['mp3', 'wav', 'm4a', 'flac', 'ogg'];
+
+const AUDIO_EXTS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'wma', 'aiff'];
+const VIDEO_EXTS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'wmv', 'flv', 'm4v', 'mts', 'mpg', 'mpeg'];
+
+type FileKind = 'audio' | 'video' | 'unknown';
+
+function extOf(file: File): string {
+  return file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase();
+}
+
+function kindOf(file: File): FileKind {
+  if (file.type.startsWith('audio/')) return 'audio';
+  if (file.type.startsWith('video/')) return 'video';
+  const ext = extOf(file);
+  if (AUDIO_EXTS.includes(ext)) return 'audio';
+  if (VIDEO_EXTS.includes(ext)) return 'video';
+  return 'unknown';
+}
 
 export function ConvertPage() {
   const { t } = useTranslation('converter');
@@ -21,10 +39,20 @@ export function ConvertPage() {
   const [format, setFormat] = useState<ConvertFormat>('mp4');
 
   const busy = runner.starting || runner.jobActive;
+  const kind = file ? kindOf(file) : 'unknown';
+  const inputExt = file ? extOf(file) : '';
+
+  // No point offering the format the file already is.
+  const videoOptions = VIDEO_FORMATS.filter((f) => f !== inputExt);
+  const audioOptions = AUDIO_FORMATS.filter((f) => f !== inputExt);
 
   const onFile = (f: File) => {
     setFile(f);
     runner.reset();
+    const k = kindOf(f);
+    const ext = extOf(f);
+    if (k === 'audio') setFormat((AUDIO_FORMATS.filter((x) => x !== ext))[0] ?? 'mp3');
+    else setFormat((VIDEO_FORMATS.filter((x) => x !== ext))[0] ?? 'mp4');
   };
 
   const convert = () => {
@@ -34,6 +62,8 @@ export function ConvertPage() {
     form.append('file', file);
     void runner.start('/api/convert', form);
   };
+
+  const isExtraction = kind === 'video' && AUDIO_FORMATS.includes(format);
 
   const pill = (fmt: ConvertFormat) => (
     <button
@@ -83,18 +113,25 @@ export function ConvertPage() {
             </button>
           </div>
 
+          {kind !== 'audio' && videoOptions.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                {t('convertTo')}
+              </p>
+              <div className="flex flex-wrap gap-2">{videoOptions.map(pill)}</div>
+            </div>
+          )}
+
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('videoFormats')}</p>
-            <div className="flex flex-wrap gap-2">{VIDEO_FORMATS.map(pill)}</div>
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('audioFormats')}</p>
-            <div className="flex flex-wrap gap-2">{AUDIO_FORMATS.map(pill)}</div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {kind === 'audio' ? t('convertTo') : t('extractAudioTitle')}
+            </p>
+            <div className="flex flex-wrap gap-2">{audioOptions.map(pill)}</div>
           </div>
 
           {!busy && runner.job?.status !== 'done' && (
             <Button className="w-full" onClick={convert}>
-              {t('convert')}
+              {isExtraction ? t('extract') : t('convert')}
             </Button>
           )}
           {runner.starting && (
@@ -110,7 +147,7 @@ export function ConvertPage() {
             preview
             doneActions={
               <Button variant="secondary" onClick={convert}>
-                {t('convertAgain')}
+                {isExtraction ? t('extractAgain') : t('convertAgain')}
               </Button>
             }
           />

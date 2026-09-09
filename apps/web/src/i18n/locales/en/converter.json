@@ -1,12 +1,14 @@
 {
   "title": "Convert Files",
-  "description": "Drop a video or audio file, pick the output format, done. Picking an audio format extracts the audio.",
+  "description": "Drop a video or audio file and pick the output format.",
   "dropLabel": "Drop your file here or click to browse",
   "dropHint": "Video or audio — MP4, MOV, MKV, WebM, MP3, WAV and more",
   "changeFile": "Change file",
-  "videoFormats": "Video output",
-  "audioFormats": "Audio output (extracts audio)",
+  "convertTo": "Convert to",
+  "extractAudioTitle": "Or extract the audio",
   "convert": "Convert",
   "convertAgain": "Convert again",
+  "extract": "Extract audio",
+  "extractAgain": "Extract again",
   "uploading": "Reading file…"
 }

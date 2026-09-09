@@ -33,9 +33,10 @@ export function downloadTask(req: {
   };
 }
 
-const AUDIO_FORMATS = new Set<ConvertFormat>(['mp3', 'wav', 'm4a']);
+const AUDIO_FORMATS = new Set<ConvertFormat>(['mp3', 'wav', 'm4a', 'flac', 'ogg']);
+type AudioFormat = 'mp3' | 'wav' | 'm4a' | 'flac' | 'ogg';
 
-function audioCodecArgs(format: 'mp3' | 'wav' | 'm4a'): string[] {
+function audioCodecArgs(format: AudioFormat): string[] {
   switch (format) {
     case 'mp3':
       return ['-c:a', 'libmp3lame', '-q:a', '0'];
@@ -43,6 +44,10 @@ function audioCodecArgs(format: 'mp3' | 'wav' | 'm4a'): string[] {
       return ['-c:a', 'pcm_s16le'];
     case 'm4a':
       return ['-c:a', 'aac', '-b:a', '256k'];
+    case 'flac':
+      return ['-c:a', 'flac'];
+    case 'ogg':
+      return ['-c:a', 'libvorbis', '-q:a', '6'];
   }
 }
 
@@ -61,7 +66,7 @@ export function convertTask(req: { inputPath: string; format: ConvertFormat; tit
       const output = path.join(tempDir, outputName);
       let args: string[];
       if (AUDIO_FORMATS.has(req.format)) {
-        args = ['-i', req.inputPath, '-vn', ...audioCodecArgs(req.format as 'mp3' | 'wav' | 'm4a'), output];
+        args = ['-i', req.inputPath, '-vn', ...audioCodecArgs(req.format as AudioFormat), output];
       } else if (req.format === 'webm') {
         args = ['-i', req.inputPath, '-c:v', 'libvpx-vp9', '-crf', '32', '-b:v', '0', '-c:a', 'libopus', output];
       } else if (attempt === 0) {
