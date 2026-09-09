@@ -145,45 +145,6 @@ export function audioFixTask(req: {
   };
 }
 
-/** Extensions we can trim without re-encoding (stream copy). */
-const COPYABLE_AUDIO = new Set(['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.opus', '.aac']);
-
-/** Cuts [startSeconds, endSeconds] out of an audio file. */
-export function trimTask(req: {
-  inputPath: string;
-  startSeconds: number;
-  endSeconds: number;
-  title?: string;
-}): JobTask {
-  const inputExt = path.extname(req.inputPath).toLowerCase();
-  const copyable = COPYABLE_AUDIO.has(inputExt);
-  const outputName = copyable ? `output${inputExt}` : 'output.wav';
-  return {
-    title: req.title,
-    maxAttempts: 1,
-    start: (tempDir, callbacks) => {
-      const output = path.join(tempDir, outputName);
-      callbacks.onStage('processing');
-      return runFfmpeg(
-        [
-          '-i', req.inputPath,
-          '-ss', String(req.startSeconds),
-          '-to', String(req.endSeconds),
-          '-vn',
-          ...(copyable ? ['-c', 'copy'] : ['-c:a', 'pcm_s16le']),
-          output,
-        ],
-        Math.max(1, req.endSeconds - req.startSeconds),
-        callbacks,
-      );
-    },
-    resolveOutput: async (tempDir) => {
-      const output = path.join(tempDir, outputName);
-      return existsSync(output) ? output : undefined;
-    },
-  };
-}
-
 export function assertDurationAllowed(seconds: number): boolean {
   return seconds <= config.maxDurationSeconds;
 }
@@ -195,7 +156,7 @@ interface SilenceParams {
   paddingSeconds: number;
 }
 
-const SILENCE_PARAMS: Record<SilenceMode, SilenceParams> = {
+const SILENCE_PARAMS: Record<Exclude<SilenceMode, 'off'>, SilenceParams> = {
   gentle: { noiseDb: -40, minSilence: 1.0, paddingSeconds: 0.25 },
   balanced: { noiseDb: -35, minSilence: 0.6, paddingSeconds: 0.15 },
   aggressive: { noiseDb: -30, minSilence: 0.35, paddingSeconds: 0.08 },
@@ -226,16 +187,22 @@ function hasRealVideoStream(stderr: string): boolean {
     .some((line) => line.includes(': Video:') && !line.includes('attached pic'));
 }
 
-/** Complement of the silences over [0, duration], with breathing padding. */
-function keptSegments(silences: Segment[], duration: number, padding: number): Segment[] {
+/** Complement of the silences over [rangeStart, rangeEnd], with breathing padding. */
+function keptSegments(
+  silences: Segment[],
+  rangeStart: number,
+  rangeEnd: number,
+  padding: number,
+): Segment[] {
   const kept: Segment[] = [];
-  let cursor = 0;
+  let cursor = rangeStart;
   for (const s of silences) {
-    const end = Math.min(s.start + padding, duration);
+    if (s.end <= rangeStart || s.start >= rangeEnd) continue;
+    const end = Math.min(Math.max(s.start, rangeStart) + padding, rangeEnd);
     if (end - cursor > 0.05) kept.push({ start: cursor, end });
-    cursor = Math.max(s.end - padding, end);
+    cursor = Math.max(Math.min(s.end, rangeEnd) - padding, end);
   }
-  if (duration - cursor > 0.05) kept.push({ start: cursor, end: duration });
+  if (rangeEnd - cursor > 0.05) kept.push({ start: cursor, end: rangeEnd });
   // Very long files could produce enormous filter graphs — merge the smallest
   // gaps until the segment count is manageable.
   while (kept.length > 250) {
@@ -257,9 +224,16 @@ function keptSegments(silences: Segment[], duration: number, padding: number): S
 /**
  * AutoCut-style silence removal for audio and video: pass 1 maps silences with
  * silencedetect, pass 2 rebuilds the media keeping only the audible segments.
+ * An optional range trims to [start, end] first; mode 'off' skips silence
+ * cutting entirely (pure trim).
  */
-export function silenceCutTask(req: { inputPath: string; mode: SilenceMode; title?: string }): JobTask {
-  const params = SILENCE_PARAMS[req.mode];
+export function silenceCutTask(req: {
+  inputPath: string;
+  mode: SilenceMode;
+  range?: { start: number; end: number };
+  title?: string;
+}): JobTask {
+  const params = req.mode === 'off' ? null : SILENCE_PARAMS[req.mode];
   let outputName: string | null = null;
   return {
     title: req.title,
@@ -274,7 +248,9 @@ export function silenceCutTask(req: { inputPath: string; mode: SilenceMode; titl
         // Pass 1 — detect silences (also tells us duration and stream layout).
         const detect = runFfmpegCapture([
           '-i', req.inputPath,
-          '-af', `silencedetect=noise=${params.noiseDb}dB:d=${params.minSilence}`,
+          ...(params
+            ? ['-af', `silencedetect=noise=${params.noiseDb}dB:d=${params.minSilence}`]
+            : []),
           '-f', 'null', '-',
         ]);
         current = detect;
@@ -283,11 +259,20 @@ export function silenceCutTask(req: { inputPath: string; mode: SilenceMode; titl
 
         const duration = parseDuration(stderr);
         if (!duration) throw new Error('could not determine duration');
-        const silences = parseSilences(stderr);
-        const kept = keptSegments(silences, duration, params.paddingSeconds);
+        const rangeStart = Math.min(Math.max(req.range?.start ?? 0, 0), duration);
+        const rangeEnd = Math.min(Math.max(req.range?.end ?? duration, rangeStart), duration);
+        const silences = params
+          ? parseSilences(stderr).filter((s) => s.end > rangeStart && s.start < rangeEnd)
+          : [];
+        const kept = keptSegments(silences, rangeStart, rangeEnd, params?.paddingSeconds ?? 0);
         const keptTotal = kept.reduce((sum, s) => sum + (s.end - s.start), 0);
         const removed = Math.max(0, duration - keptTotal);
-        callbacks.onMeta?.({ silencesCut: silences.length, removedSeconds: Math.round(removed) });
+        if (params) {
+          callbacks.onMeta?.({
+            silencesCut: silences.length,
+            removedSeconds: Math.round(Math.max(0, rangeEnd - rangeStart - keptTotal)),
+          });
+        }
 
         const video = hasRealVideoStream(stderr);
         const inputExt = path.extname(req.inputPath).toLowerCase();

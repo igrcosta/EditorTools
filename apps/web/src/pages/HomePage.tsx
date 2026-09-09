@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 interface Tool {
-  key: 'download' | 'convert' | 'fixAudio' | 'trimAudio' | 'cutSilence';
+  key: 'download' | 'convert' | 'fixAudio' | 'cutSilence';
   to?: string;
 }
 
@@ -10,7 +10,6 @@ const TOOLS: Tool[] = [
   { key: 'download', to: '/download' },
   { key: 'convert', to: '/convert' },
   { key: 'fixAudio', to: '/audio-fix' },
-  { key: 'trimAudio', to: '/trim-audio' },
   { key: 'cutSilence', to: '/cut-silence' },
 ];
 

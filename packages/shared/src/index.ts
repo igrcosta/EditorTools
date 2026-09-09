@@ -63,7 +63,8 @@ export type LoudnessPreset = (typeof LOUDNESS_PRESETS)[number];
 
 export type AudioFixOutput = 'wav' | 'mp3';
 
-export const SILENCE_MODES = ['gentle', 'balanced', 'aggressive'] as const;
+/** 'off' = no silence cutting — the tool then just trims to the selected region. */
+export const SILENCE_MODES = ['off', 'gentle', 'balanced', 'aggressive'] as const;
 export type SilenceMode = (typeof SILENCE_MODES)[number];
 
 /** Extra result info some tools report (e.g. silence cutting stats). */

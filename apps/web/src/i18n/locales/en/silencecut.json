@@ -1,23 +1,33 @@
 {
   "title": "Cut Silence",
-  "description": "Automatically remove the silent parts from a recording or video — like an auto-cut, in one click.",
+  "description": "See the waveform, pick the part you want, and auto-remove the silent parts — audio or video.",
   "dropLabel": "Drop your audio or video here or click to browse",
   "dropHint": "Videos come back as MP4 without the silent parts",
   "changeFile": "Change file",
-  "modeTitle": "How aggressive?",
+  "loadingWave": "Building waveform…",
+  "previewUnavailable": "Preview isn't available for this format, but processing still works.",
+  "dragHint": "Drag the edges of the highlighted region to keep only that part. Press play to listen before processing.",
+  "playSelection": "▶ Play selection",
+  "pause": "Pause",
+  "selected": "keeping",
+  "modeTitle": "Cut silences",
   "mode": {
+    "off": "Off · just trim",
     "gentle": "Only long pauses",
     "balanced": "Balanced",
     "aggressive": "Aggressive"
   },
   "modeHint": {
+    "off": "No silence cutting — exports exactly the selected region.",
     "gentle": "Cuts only pauses longer than 1 second — safest for natural speech.",
     "balanced": "Cuts pauses over 0.6s, keeping a little breathing room. Good default.",
     "aggressive": "Cuts almost every pause — tight, fast-paced result."
   },
+  "nothingToDo": "Select a region or turn on silence cutting to process.",
   "process": "Cut silences",
-  "processAgain": "Cut again",
+  "processTrim": "Trim & save",
+  "processAgain": "Process again",
   "uploading": "Reading file…",
   "stats": "✂ {{count}} silences cut — {{time}} shorter",
-  "nothingToCut": "No significant silences found — the file was kept as is."
+  "nothingToCut": "No significant silences found in the selection — kept as is."
 }

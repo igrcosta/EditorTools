@@ -28,13 +28,9 @@
       "title": "Fix Audio",
       "description": "Remove noise and normalize loudness"
     },
-    "trimAudio": {
-      "title": "Trim Audio",
-      "description": "Cut and export audio regions"
-    },
     "cutSilence": {
       "title": "Cut Silence",
-      "description": "Auto-remove silent parts from audio or video"
+      "description": "Trim, preview and auto-remove silences from audio or video"
     }
   }
 }
