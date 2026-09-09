@@ -5,6 +5,8 @@ const NAV = [
   { to: '/download', key: 'downloader' },
   { to: '/audio', key: 'audio' },
   { to: '/convert', key: 'convert' },
+  { to: '/image', key: 'image' },
+  { to: '/video', key: 'video' },
 ] as const;
 
 export function Layout() {

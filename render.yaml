@@ -12,3 +12,6 @@ services:
         value: '7200'
       - key: MAX_CONCURRENT_JOBS
         value: '1'
+      # Image tools + face tracking need the desktop app (GPU / memory).
+      - key: IMAGE_TOOLS
+        value: 'false'

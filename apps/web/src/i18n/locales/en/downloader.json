@@ -43,6 +43,11 @@
     "not_found": "This download expired. Please start it again.",
     "canceled": "Download canceled.",
     "download_failed": "We couldn't process this media. It may be unsupported or temporarily unavailable.",
+    "invalid_file": "We couldn't read this file. Check the file and options and try again.",
+    "image_too_large": "This image has too many pixels to process. Try a smaller image or scale.",
+    "gpu_required": "Upscaling needs a Vulkan-capable GPU. Update your graphics drivers and try again.",
+    "no_face_found": "We couldn't find a face in this video.",
+    "feature_unavailable": "This tool is only available in the Editools desktop app.",
     "network_error": "Can't reach the Editools server. Is it running?"
   }
 }

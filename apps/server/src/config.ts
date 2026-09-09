@@ -1,3 +1,26 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+
+/**
+ * Dev fallback for the AI models and the Real-ESRGAN binary: the repo's
+ * `vendor/` folder (filled by `scripts/fetch-vendor.mjs` on install). The
+ * desktop app and containers point at their own copies via env vars.
+ */
+function findVendorDir(): string | null {
+  let dir = process.cwd();
+  for (let i = 0; i < 5; i += 1) {
+    const candidate = path.join(dir, 'vendor');
+    if (existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+const vendorDir = findVendorDir();
+const exe = (name: string) => (process.platform === 'win32' ? `${name}.exe` : name);
+
 export const config = {
   /**
    * Defaults to localhost only for local development. Deployments (e.g. the
@@ -32,4 +55,20 @@ export const config = {
   maxFilesize: process.env.MAX_FILESIZE ?? '6G',
   /** Upload cap for converter/audio tools (local uploads are instant on desktop). */
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 ** 3),
+
+  // --- AI tools (image + face tracking). Desktop-only in practice: the web
+  // deploy has neither the GPU nor the memory, so IMAGE_TOOLS=false there. ---
+
+  /** Master switch; availability additionally requires the model/binary files to exist. */
+  imageToolsEnabled: process.env.IMAGE_TOOLS !== 'false',
+  /** Folder holding the .onnx models (ISNet background removal, YuNet face detection). */
+  modelsDir: process.env.MODELS_DIR ?? (vendorDir ? path.join(vendorDir, 'models') : null),
+  /** Real-ESRGAN ncnn-vulkan executable; its `models/` folder must sit next to it. */
+  realesrganPath:
+    process.env.REALESRGAN_PATH ??
+    (vendorDir ? path.join(vendorDir, 'realesrgan', exe('realesrgan-ncnn-vulkan')) : null),
+  /** Input images above this many pixels are refused (memory/VRAM guard). */
+  maxImagePixels: Number(process.env.MAX_IMAGE_PIXELS ?? 50_000_000),
+  /** Face tracking analyses every frame; cap the clip length. */
+  maxTrackingSeconds: Number(process.env.MAX_TRACKING_SECONDS ?? 600),
 } as const;

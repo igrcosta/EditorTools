@@ -12,7 +12,10 @@ import { registerAnalyzeRoute } from './routes/analyze';
 import { registerAudioRoutes } from './routes/audio';
 import { registerConvertRoute } from './routes/convert';
 import { registerDownloadRoute } from './routes/download';
+import { registerFeaturesRoute } from './routes/features';
+import { registerImageRoutes } from './routes/image';
 import { registerJobRoutes } from './routes/jobs';
+import { registerVideoRoutes } from './routes/video';
 
 /**
  * Builds the Editools server without binding to a port.
@@ -28,8 +31,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
-        // Media thumbnails come from the source platforms (e.g. i.ytimg.com).
-        'img-src': ["'self'", 'data:', 'https:'],
+        // Media thumbnails come from the source platforms (e.g. i.ytimg.com);
+        // the image tools preview the local file before processing (blob:).
+        'img-src': ["'self'", 'data:', 'blob:', 'https:'],
         // Local files opened by the tools (waveform preview/playback) use blob: URLs.
         'media-src': ["'self'", 'blob:'],
         'connect-src': ["'self'", 'blob:'],
@@ -45,10 +49,13 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
+  registerFeaturesRoute(app);
   registerAnalyzeRoute(app);
   registerDownloadRoute(app);
   registerConvertRoute(app);
   registerAudioRoutes(app);
+  registerImageRoutes(app);
+  registerVideoRoutes(app);
   registerJobRoutes(app);
 
   // Single-port deploy: serve the built web app alongside the API.

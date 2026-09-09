@@ -6,7 +6,7 @@
   "author": "Igor Costa",
   "main": "dist/main.cjs",
   "scripts": {
-    "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main.cjs",
+    "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --external:electron --external:onnxruntime-node --external:onnxruntime-common --outfile=dist/main.cjs",
     "typecheck": "tsc"
   },
   "build": {
@@ -31,6 +31,33 @@
       {
         "from": "../../node_modules/ffmpeg-static/ffmpeg.exe",
         "to": "bin/ffmpeg.exe"
+      },
+      {
+        "from": "../../vendor/realesrgan",
+        "to": "bin/realesrgan"
+      },
+      {
+        "from": "../../vendor/models",
+        "to": "models"
+      },
+      {
+        "from": "../../node_modules/onnxruntime-node",
+        "to": "node_modules/onnxruntime-node",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "lib/**",
+          "bin/napi-v6/win32/x64/**"
+        ]
+      },
+      {
+        "from": "../../node_modules/onnxruntime-common",
+        "to": "node_modules/onnxruntime-common",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "lib/**"
+        ]
       }
     ],
     "win": {

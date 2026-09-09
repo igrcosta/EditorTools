@@ -11,9 +11,12 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "desktop:dev": "npm run build -w @editools/web && npm run build:main -w @editools/desktop && electron apps/desktop",
-    "desktop:dist": "npm run build -w @editools/web && npm run build:main -w @editools/desktop && electron-builder --projectDir apps/desktop"
+    "desktop:dist": "npm run build -w @editools/web && npm run build:main -w @editools/desktop && electron-builder --projectDir apps/desktop",
+    "postinstall": "node scripts/fetch-vendor.mjs"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "adm-zip": "^0.5.18",
     "concurrently": "^9.1.0"
   },
   "engines": {

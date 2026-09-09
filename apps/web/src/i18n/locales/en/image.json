@@ -1,0 +1,59 @@
+{
+  "removeBg": {
+    "title": "Remove Background",
+    "description": "Drop a photo — the subject stays, the background goes.",
+    "dropLabel": "Drop an image here or click to browse",
+    "dropHint": "PNG, JPG or WebP",
+    "outputTitle": "Save as",
+    "output": {
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "process": "Remove background",
+    "processAgain": "Run again",
+    "uploading": "Reading image…",
+    "hint": "Runs on your computer. Works best on photos with a clear subject."
+  },
+  "upscale": {
+    "title": "Upscale",
+    "description": "Enlarge an image with AI — sharper than a plain resize.",
+    "dropLabel": "Drop an image here or click to browse",
+    "dropHint": "PNG, JPG or WebP",
+    "modelTitle": "Content",
+    "model": {
+      "photo": "Photo",
+      "anime": "Anime / illustration",
+      "fast": "Fast"
+    },
+    "modelHint": {
+      "photo": "Real-ESRGAN x4plus — photos, screenshots, renders.",
+      "anime": "Real-ESRGAN anime — flat colours and line art.",
+      "fast": "Real-ESRGAN animevideo — lighter model, quicker on slow GPUs."
+    },
+    "scaleTitle": "Scale",
+    "scale": {
+      "2": "2×",
+      "4": "4×"
+    },
+    "outputTitle": "Save as",
+    "output": {
+      "png": "PNG",
+      "jpg": "JPG",
+      "webp": "WebP"
+    },
+    "sizePreview": "{{from}} → {{to}}",
+    "tooLarge": "The result would be over {{limit}} megapixels — pick a smaller scale.",
+    "process": "Upscale",
+    "processAgain": "Upscale again",
+    "uploading": "Reading image…",
+    "gpuHint": "Uses your GPU (Vulkan). A slow or integrated GPU can take a minute or two."
+  },
+  "changeFile": "Change file",
+  "compare": {
+    "before": "Before",
+    "after": "After",
+    "fit": "Fit",
+    "actual": "100%",
+    "slider": "Compare before and after"
+  }
+}

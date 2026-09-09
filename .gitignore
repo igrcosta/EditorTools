@@ -7,3 +7,5 @@ release/
 .env.*
 .DS_Store
 Thumbs.db
+# AI models + Real-ESRGAN binary, fetched by scripts/fetch-vendor.mjs
+vendor/

@@ -12,7 +12,11 @@ COPY package.json package-lock.json ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-# Also downloads the yt-dlp and ffmpeg binaries (postinstall)
+COPY scripts ./scripts
+# Also downloads the yt-dlp and ffmpeg binaries (postinstall). The AI models
+# and Real-ESRGAN are desktop-only (no GPU / not enough memory here), so their
+# fetch is skipped and the tools are switched off below.
+ENV SKIP_VENDOR_FETCH=1
 RUN npm ci
 
 COPY . .
@@ -23,7 +27,8 @@ ENV NODE_ENV=production \
     PORT=3001 \
     TRUST_PROXY=1 \
     WEB_DIST=/app/apps/web/dist \
-    MAX_FILESIZE=2G
+    MAX_FILESIZE=2G \
+    IMAGE_TOOLS=false
 
 EXPOSE 3001
 

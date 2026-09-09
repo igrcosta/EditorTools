@@ -1,0 +1,33 @@
+{
+  "title": "Face Tracking",
+  "description": "Drop a video — the frame follows the face with a smooth, After Effects-style camera move.",
+  "dropLabel": "Drop a video here or click to browse",
+  "dropHint": "MP4, MOV or WebM — up to 10 minutes",
+  "changeFile": "Change file",
+  "aspectTitle": "Output frame",
+  "aspect": {
+    "original": "Same as video",
+    "9:16": "9:16 vertical",
+    "1:1": "1:1 square",
+    "16:9": "16:9 wide"
+  },
+  "zoomTitle": "Zoom",
+  "zoom": {
+    "1": "None",
+    "1.2": "1.2×",
+    "1.5": "1.5×",
+    "2": "2×"
+  },
+  "zoomHint": "Zoom crops into the frame and scales it back up, so a little softness is normal.",
+  "smoothingTitle": "Camera smoothness",
+  "smoothing": {
+    "low": "Tight",
+    "medium": "Smooth",
+    "high": "Cinematic"
+  },
+  "process": "Track face",
+  "processAgain": "Track again",
+  "uploading": "Reading video…",
+  "coverageWarning": "A face was visible in only {{percent}}% of the video — the camera holds or glides through the rest.",
+  "hint": "Runs on your computer. One face is followed: the largest one, staying with it when others appear."
+}

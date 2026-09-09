@@ -9,9 +9,16 @@ const PATTERNS: Array<[RegExp, ErrorCode]> = [
   [/video unavailable|has been removed|does not exist|account.+terminated|no longer available/i, 'unavailable'],
   [/not available in your country|geo.?restrict|blocked in your/i, 'geo_blocked'],
   [/larger than max-filesize|file is larger than/i, 'too_large'],
+  // Real-ESRGAN (ncnn-vulkan) without a usable Vulkan GPU.
+  [/vkCreateInstance failed|vkEnumeratePhysicalDevices failed|no vulkan device|invalid gpu device|vulkan-1\.dll|EDITOOLS_GPU_REQUIRED/i, 'gpu_required'],
+  // Markers thrown by the image / tracking tasks.
+  [/EDITOOLS_IMAGE_TOO_LARGE/, 'image_too_large'],
+  [/EDITOOLS_NO_FACE_FOUND/, 'no_face_found'],
+  [/EDITOOLS_INVALID_FILE/, 'invalid_file'],
+  [/EDITOOLS_TOO_LONG/, 'too_long'],
 ];
 
-/** Maps raw yt-dlp output to a stable error code. Raw output stays in server logs only. */
+/** Maps raw tool output (yt-dlp, ffmpeg, ncnn…) to a stable error code. Raw output stays in server logs only. */
 export function mapYtdlpError(output: string): ErrorCode {
   for (const [re, code] of PATTERNS) {
     if (re.test(output)) return code;
@@ -37,6 +44,10 @@ const MESSAGES: Record<ErrorCode, string> = {
   canceled: 'The download was canceled.',
   invalid_file: "We couldn't read this file. Check the file and options and try again.",
   download_failed: "We couldn't process this media. It may be unsupported or temporarily unavailable.",
+  image_too_large: 'This image has too many pixels to process.',
+  gpu_required: 'Upscaling needs a Vulkan-capable GPU and up-to-date graphics drivers.',
+  no_face_found: "We couldn't find a face in this video.",
+  feature_unavailable: 'This tool is only available in the Editools desktop app.',
 };
 
 export function apiError(code: ErrorCode): ApiError {

@@ -1,17 +1,45 @@
-import { copyFile, readdir, writeFile } from 'node:fs/promises';
+import { copyFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type {
   AudioFixOutput,
+  BgOutput,
   ConvertFormat,
   LoudnessPreset,
   NoiseLevel,
   OutputFormat,
   SilenceMode,
+  TrackAspect,
+  TrackSmoothing,
+  UpscaleModel,
+  UpscaleOutput,
+  UpscaleScale,
 } from '@editools/shared';
 import { config } from '../config';
-import { runFfmpeg, runFfmpegCapture, type ProcessHandle } from './ffmpeg';
-import type { JobTask } from './jobs';
+import { ISNET_SIZE, predictAlphaMask } from './background';
+import {
+  aspectRatio,
+  buildTrack,
+  cropWindow,
+  detectFaces,
+  pickPrimary,
+  sendcmdScript,
+  YUNET_SIZE,
+  type FaceBox,
+  type Sample,
+} from './facetrack';
+import { modelPath } from './features';
+import {
+  probeMedia,
+  runFfmpeg,
+  runFfmpegCapture,
+  runFfmpegToBuffer,
+  spawnFfmpegStream,
+  type ProcessHandle,
+} from './ffmpeg';
+import type { JobCallbacks, JobTask } from './jobs';
+import { getSession } from './onnx';
+import { realesrganModelsDir, runRealesrgan } from './realesrgan';
 import { runDownload } from './ytdlp';
 
 /** Media downloader (yt-dlp). Retries cover flaky sites (TikTok's anti-bot roulette). */
@@ -341,6 +369,331 @@ export function silenceCutTask(req: {
     },
     resolveOutput: async (tempDir) => {
       if (!outputName) return undefined;
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Image tools
+// ---------------------------------------------------------------------------
+
+/** Progress from helper passes (probe, format conversion) would only confuse the bar. */
+function withoutProgress(callbacks: JobCallbacks): JobCallbacks {
+  return { ...callbacks, onProgress: () => undefined };
+}
+
+/**
+ * Multi-step tasks share this shape: an async pipeline plus a handle whose
+ * kill() reaches whichever child process is currently running.
+ */
+function pipelineTask(run: (ctx: { track<T extends { kill(): void }>(h: T): T; assertAlive(): void }) => Promise<void>): ProcessHandle {
+  let killed = false;
+  let current: { kill(): void } | null = null;
+  const ctx = {
+    track<T extends { kill(): void }>(h: T): T {
+      current = h;
+      return h;
+    },
+    assertAlive() {
+      if (killed) throw new Error('canceled');
+    },
+  };
+  return {
+    kill() {
+      killed = true;
+      current?.kill();
+    },
+    done: run(ctx),
+  };
+}
+
+function imageEncoderArgs(format: 'png' | 'jpg' | 'webp', lossless: boolean): string[] {
+  switch (format) {
+    case 'png':
+      return ['-c:v', 'png'];
+    case 'jpg':
+      return ['-c:v', 'mjpeg', '-q:v', '2', '-pix_fmt', 'yuvj444p'];
+    case 'webp':
+      return lossless ? ['-c:v', 'libwebp', '-lossless', '1'] : ['-c:v', 'libwebp', '-quality', '95'];
+  }
+}
+
+/**
+ * Background removal (ISNet via onnxruntime). ffmpeg does the pixel work:
+ * decode → 1024² RGB for the model, then the predicted alpha is scaled back
+ * and merged into the original image.
+ */
+export function removeBackgroundTask(req: { inputPath: string; output: BgOutput; title?: string }): JobTask {
+  const outputName = `output.${req.output}`;
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
+        callbacks.onStage('processing');
+        const probe = await track(probeMedia(req.inputPath)).done;
+        assertAlive();
+        if (!probe) throw new Error('EDITOOLS_INVALID_FILE: not an image');
+        if (probe.width * probe.height > config.maxImagePixels) throw new Error('EDITOOLS_IMAGE_TOO_LARGE');
+        callbacks.onMeta?.({ inputWidth: probe.width, inputHeight: probe.height });
+
+        const model = modelPath('isnet');
+        if (!model) throw new Error('ISNet model file is missing');
+
+        const rgb = await track(
+          runFfmpegToBuffer([
+            '-i', req.inputPath, '-frames:v', '1',
+            '-vf', `scale=${ISNET_SIZE}:${ISNET_SIZE}:flags=lanczos`,
+            '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-',
+          ]),
+        ).done;
+        assertAlive();
+
+        const session = await getSession(model);
+        const mask = await predictAlphaMask(session, rgb);
+        assertAlive();
+        const maskPath = path.join(tempDir, 'mask.raw');
+        await writeFile(maskPath, mask);
+
+        await track(
+          runFfmpeg(
+            [
+              '-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${ISNET_SIZE}x${ISNET_SIZE}`, '-i', maskPath,
+              '-i', req.inputPath,
+              '-filter_complex',
+              `[0:v]scale=${probe.width}:${probe.height}:flags=lanczos[m];[1:v]format=rgba[i];[i][m]alphamerge[out]`,
+              '-map', '[out]', '-frames:v', '1',
+              ...imageEncoderArgs(req.output, true),
+              path.join(tempDir, outputName),
+            ],
+            null,
+            withoutProgress(callbacks),
+          ),
+        ).done;
+      }),
+    resolveOutput: async (tempDir) => {
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
+}
+
+const UPSCALE_MODEL_NAMES: Record<UpscaleModel, string> = {
+  photo: 'realesrgan-x4plus',
+  anime: 'realesrgan-x4plus-anime',
+  fast: 'realesr-animevideov3',
+};
+
+/**
+ * Image upscaling with Real-ESRGAN (ncnn-vulkan, the engine behind Upscayl).
+ * x4plus models only do 4×; a 2× request upscales 4× then downsamples —
+ * the same trick Upscayl uses.
+ */
+export function upscaleTask(req: {
+  inputPath: string;
+  model: UpscaleModel;
+  scale: UpscaleScale;
+  output: UpscaleOutput;
+  title?: string;
+}): JobTask {
+  const outputName = `output.${req.output}`;
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
+        callbacks.onStage('processing');
+        const probe = await track(probeMedia(req.inputPath)).done;
+        assertAlive();
+        if (!probe) throw new Error('EDITOOLS_INVALID_FILE: not an image');
+        const outWidth = probe.width * req.scale;
+        const outHeight = probe.height * req.scale;
+        if (outWidth * outHeight > config.maxImagePixels) throw new Error('EDITOOLS_IMAGE_TOO_LARGE');
+        callbacks.onMeta?.({
+          inputWidth: probe.width,
+          inputHeight: probe.height,
+          outputWidth: outWidth,
+          outputHeight: outHeight,
+        });
+        const modelsDir = realesrganModelsDir();
+        if (!modelsDir) throw new Error('EDITOOLS_GPU_REQUIRED: realesrgan not configured');
+
+        // Normalise to PNG so any ffmpeg-readable input works (ncnn only reads jpg/png/webp).
+        const prepared = path.join(tempDir, 'in.png');
+        await track(runFfmpeg(['-i', req.inputPath, '-frames:v', '1', prepared], null, withoutProgress(callbacks))).done;
+        assertAlive();
+
+        const nativeScale = req.model === 'fast' ? req.scale : 4;
+        const upscaled = path.join(tempDir, 'up.png');
+        await track(
+          runRealesrgan(
+            ['-i', prepared, '-o', upscaled, '-n', UPSCALE_MODEL_NAMES[req.model], '-s', String(nativeScale), '-m', modelsDir, '-f', 'png'],
+            callbacks,
+          ),
+        ).done;
+        assertAlive();
+
+        const output = path.join(tempDir, outputName);
+        const needsResize = nativeScale !== req.scale;
+        if (!needsResize && req.output === 'png') {
+          await rename(upscaled, output);
+          return;
+        }
+        await track(
+          runFfmpeg(
+            [
+              '-i', upscaled,
+              ...(needsResize ? ['-vf', `scale=${outWidth}:${outHeight}:flags=lanczos`] : []),
+              ...imageEncoderArgs(req.output, false),
+              output,
+            ],
+            null,
+            withoutProgress(callbacks),
+          ),
+        ).done;
+      }),
+    resolveOutput: async (tempDir) => {
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Face tracking
+// ---------------------------------------------------------------------------
+
+const ANALYSIS_FPS = 10;
+/** Share of the progress bar given to the detection pass; the render takes the rest. */
+const DETECTION_SHARE = 45;
+
+/**
+ * "Head tracking" reframe: pass 1 samples the video at 10 fps and finds the
+ * face with YuNet; the smoothed path becomes a per-frame crop offset that
+ * pass 2 applies through ffmpeg's sendcmd + crop, scaled to the output size.
+ */
+export function faceTrackTask(req: {
+  inputPath: string;
+  aspect: TrackAspect;
+  zoom: number;
+  smoothing: TrackSmoothing;
+  title?: string;
+}): JobTask {
+  const outputName = 'output.mp4';
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
+        callbacks.onStage('processing');
+        const probe = await track(probeMedia(req.inputPath)).done;
+        assertAlive();
+        if (!probe?.hasVideo || !probe.duration) throw new Error('EDITOOLS_INVALID_FILE: no video stream');
+        if (probe.duration > config.maxTrackingSeconds) throw new Error('EDITOOLS_TOO_LONG');
+        const model = modelPath('yunet');
+        if (!model) throw new Error('YuNet model file is missing');
+
+        const { width, height, duration } = probe;
+        const fps = Math.min(120, Math.max(1, probe.fps ?? 30));
+        const ratio = aspectRatio(req.aspect, width, height);
+        const outSize = cropWindow(width, height, ratio, 1);
+        const crop = cropWindow(width, height, ratio, req.zoom);
+        callbacks.onMeta?.({ inputWidth: width, inputHeight: height, outputWidth: outSize.w, outputHeight: outSize.h });
+
+        // Pass 1 — letterbox each sampled frame into YuNet's 640×640 input.
+        const scale = Math.min(YUNET_SIZE / width, YUNET_SIZE / height);
+        const scaledW = Math.max(2, Math.floor(width * scale));
+        const scaledH = Math.max(2, Math.floor(height * scale));
+        const stream = track(
+          spawnFfmpegStream([
+            '-i', req.inputPath,
+            '-vf', `fps=${ANALYSIS_FPS},scale=${scaledW}:${scaledH}:flags=bilinear,pad=${YUNET_SIZE}:${YUNET_SIZE}:0:0:black`,
+            '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-',
+          ]),
+        );
+        const session = await getSession(model);
+        const frameBytes = YUNET_SIZE * YUNET_SIZE * 3;
+        const expectedFrames = Math.max(1, Math.ceil(duration * ANALYSIS_FPS));
+        const samples: Sample[] = [];
+        let previous: FaceBox | null = null;
+        let emitted = 0;
+        let pending: Buffer[] = [];
+        let pendingBytes = 0;
+
+        const handleFrame = async (frame: Buffer) => {
+          assertAlive();
+          const faces = await detectFaces(session, frame);
+          const primary = pickPrimary(faces, previous);
+          if (primary) previous = primary;
+          samples.push({
+            t: samples.length / ANALYSIS_FPS,
+            face: primary
+              ? { cx: primary.cx / scale, cy: primary.cy / scale, size: Math.max(primary.w, primary.h) / scale }
+              : null,
+          });
+          const percent = Math.min(DETECTION_SHARE, Math.round((samples.length / expectedFrames) * DETECTION_SHARE));
+          if (percent > emitted) {
+            emitted = percent;
+            callbacks.onProgress(percent);
+          }
+        };
+
+        for await (const chunk of stream.proc.stdout as AsyncIterable<Buffer>) {
+          pending.push(chunk);
+          pendingBytes += chunk.length;
+          while (pendingBytes >= frameBytes) {
+            const joined = pending.length === 1 ? pending[0] : Buffer.concat(pending);
+            await handleFrame(joined.subarray(0, frameBytes));
+            const rest = joined.subarray(frameBytes);
+            pending = rest.length ? [rest] : [];
+            pendingBytes = rest.length;
+          }
+        }
+        await stream.exited;
+        assertAlive();
+
+        const seen = samples.filter((s) => s.face !== null).length;
+        if (samples.length === 0 || seen === 0) throw new Error('EDITOOLS_NO_FACE_FOUND');
+        callbacks.onMeta?.({
+          inputWidth: width,
+          inputHeight: height,
+          outputWidth: outSize.w,
+          outputHeight: outSize.h,
+          faceCoverage: seen / samples.length,
+        });
+
+        // Smooth path → per-frame crop offsets for sendcmd.
+        const points = buildTrack(samples, { width, height, fps, duration }, crop, req.smoothing);
+        await writeFile(path.join(tempDir, 'track.cmd'), sendcmdScript(points), 'utf8');
+        const filter =
+          `[0:v]sendcmd=f=track.cmd,crop@c=${crop.w}:${crop.h}:${points[0].x}:${points[0].y},` +
+          `scale=${outSize.w}:${outSize.h}:flags=lanczos,setsar=1[v]`;
+        await writeFile(path.join(tempDir, 'filter.txt'), filter, 'utf8');
+
+        // Pass 2 — render. Relative paths + cwd keep Windows drive colons out of the filter graph.
+        await track(
+          runFfmpeg(
+            [
+              '-i', req.inputPath,
+              '-filter_complex_script', 'filter.txt',
+              '-map', '[v]', '-map', '0:a?',
+              '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p',
+              '-c:a', 'aac', '-b:a', '192k',
+              '-movflags', '+faststart',
+              outputName,
+            ],
+            duration,
+            {
+              ...callbacks,
+              onProgress: (p) => callbacks.onProgress(DETECTION_SHARE + Math.round((p * (99 - DETECTION_SHARE)) / 100)),
+            },
+            { cwd: tempDir },
+          ),
+        ).done;
+      }),
+    resolveOutput: async (tempDir) => {
       const output = path.join(tempDir, outputName);
       return existsSync(output) ? output : undefined;
     },

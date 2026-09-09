@@ -6,7 +6,9 @@
   "nav": {
     "downloader": "Master Downloader",
     "audio": "Audio",
-    "convert": "Convert"
+    "convert": "Convert",
+    "image": "Image",
+    "video": "Face Tracking"
   },
   "home": {
     "downloader": {
@@ -20,6 +22,14 @@
     "convert": {
       "title": "Convert Files",
       "description": "Any format, one click"
+    },
+    "image": {
+      "title": "Image Tools",
+      "description": "Remove backgrounds, upscale with AI"
+    },
+    "video": {
+      "title": "Face Tracking",
+      "description": "Reframe a video to follow the face"
     }
   },
   "audioHub": {
@@ -29,6 +39,19 @@
       "silence": "Cut Silence & Trim",
       "fix": "Fix Audio"
     }
+  },
+  "imageHub": {
+    "title": "Image Tools",
+    "description": "AI image fixes that run on your computer — pick a tool below.",
+    "tabs": {
+      "removeBg": "Remove Background",
+      "upscale": "Upscale"
+    }
+  },
+  "desktopOnly": {
+    "badge": "Desktop only",
+    "title": "Available in the desktop app",
+    "description": "This tool runs AI models on your own computer, so it ships with the Editools desktop app and is not available on the web version."
   },
   "job": {
     "starting": "Starting…",

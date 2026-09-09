@@ -17,6 +17,10 @@ const CONTENT_TYPES: Record<string, string> = {
   '.ogg': 'audio/ogg',
   '.opus': 'audio/opus',
   '.aac': 'audio/aac',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
 };
 
 export function registerJobRoutes(app: FastifyInstance): void {
