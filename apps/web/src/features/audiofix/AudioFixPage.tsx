@@ -16,7 +16,7 @@ const OUTPUT_OPTIONS: AudioFixOutput[] = ['wav', 'mp3'];
 
 export function AudioFixPage() {
   const { t } = useTranslation('audiofix');
-  const runner = useJobRunner();
+  const runner = useJobRunner({ autoSave: false });
 
   const [file, setFile] = useState<File | null>(null);
   const [noise, setNoise] = useState<NoiseLevel>('balanced');
@@ -123,6 +123,7 @@ export function AudioFixPage() {
             starting={false}
             job={runner.job}
             onCancel={runner.cancel}
+            preview
             doneActions={
               <Button variant="secondary" onClick={process}>
                 {t('processAgain')}

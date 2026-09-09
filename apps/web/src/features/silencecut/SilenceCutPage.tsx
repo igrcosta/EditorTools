@@ -16,7 +16,7 @@ const MODES: SilenceMode[] = ['off', 'gentle', 'balanced', 'aggressive'];
 
 export function SilenceCutPage() {
   const { t } = useTranslation('silencecut');
-  const runner = useJobRunner();
+  const runner = useJobRunner({ autoSave: false });
 
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<SilenceMode>('balanced');
@@ -49,6 +49,9 @@ export function SilenceCutPage() {
       progressColor: '#34d399',
       cursorColor: '#e4e4e7',
       normalize: true,
+      // Play through WebAudio — the same path that decodes the waveform —
+      // instead of a media element, which is unreliable in the desktop shell.
+      backend: 'WebAudio',
     });
     const regions = ws.registerPlugin(RegionsPlugin.create());
     const unlock = () => {
@@ -242,6 +245,7 @@ export function SilenceCutPage() {
             starting={false}
             job={runner.job}
             onCancel={runner.cancel}
+            preview
             doneActions={
               <Button variant="secondary" onClick={process}>
                 {t('processAgain')}

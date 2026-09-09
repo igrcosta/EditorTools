@@ -52,6 +52,8 @@ export const api = {
   getJob: (id: string) => request<JobState>(`/api/jobs/${id}`),
   cancelJob: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),
   jobFileUrl: (id: string) => `/api/jobs/${id}/file`,
+  /** Same file served inline (no attachment disposition) for in-app preview players. */
+  jobPreviewUrl: (id: string) => `/api/jobs/${id}/file?inline=1`,
   /** Present only inside the desktop app; null in the browser. */
   getDesktopSettings: async (): Promise<DesktopSettings | null> => {
     try {

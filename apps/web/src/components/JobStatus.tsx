@@ -7,16 +7,24 @@ import { Button } from './Button';
 import { ProgressBar } from './ProgressBar';
 import { Spinner } from './Spinner';
 
+const VIDEO_EXTS = ['.mp4', '.mov', '.webm', '.mkv'];
+const AUDIO_EXTS = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.opus', '.aac'];
+
 interface Props {
   starting: boolean;
   job: JobState | null;
   onCancel: () => void;
-  /** Extra actions rendered next to "Save again" when the job is done. */
+  /**
+   * Preview-then-save mode: show an inline player and an explicit Save button
+   * instead of reporting an automatic save.
+   */
+  preview?: boolean;
+  /** Extra actions rendered next to the save/save-again button when done. */
   doneActions?: ReactNode;
 }
 
 /** Progress + result panel shared by the upload-based tools. */
-export function JobStatus({ starting, job, onCancel, doneActions }: Props) {
+export function JobStatus({ starting, job, onCancel, preview = false, doneActions }: Props) {
   const { t } = useTranslation();
   const active = job !== null && (job.status === 'queued' || job.status === 'running');
 
@@ -44,22 +52,44 @@ export function JobStatus({ starting, job, onCancel, doneActions }: Props) {
   }
 
   if (job?.status === 'done') {
+    const ext = job.filename ? job.filename.slice(job.filename.lastIndexOf('.')).toLowerCase() : '';
+    const isVideo = VIDEO_EXTS.includes(ext);
+    const isAudio = AUDIO_EXTS.includes(ext);
     return (
       <div className="space-y-3">
-        <p className="text-sm font-medium text-accent">✓ {t('job.savedAutomatically')}</p>
+        <p className="text-sm font-medium text-accent">
+          ✓ {preview ? t('job.ready') : t('job.savedAutomatically')}
+        </p>
         <p className="text-sm text-zinc-300">
           {job.filename}
           {job.fileSizeBytes !== undefined && (
             <span className="text-zinc-500"> · {formatBytes(job.fileSizeBytes)}</span>
           )}
         </p>
+        {preview && isVideo && (
+          <video
+            controls
+            className="w-full rounded-md bg-black"
+            src={api.jobPreviewUrl(job.id)}
+            onError={(e) => {
+              (e.currentTarget as HTMLVideoElement).hidden = true;
+            }}
+          />
+        )}
+        {preview && isAudio && (
+          <audio controls className="w-full" src={api.jobPreviewUrl(job.id)} />
+        )}
         <div className="flex flex-wrap gap-2">
           <a
             href={api.jobFileUrl(job.id)}
             download
-            className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-700 px-4 text-sm text-zinc-200 transition-colors hover:border-zinc-500"
+            className={
+              preview
+                ? 'inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-accent-strong'
+                : 'inline-flex h-10 items-center justify-center rounded-md border border-zinc-700 px-4 text-sm text-zinc-200 transition-colors hover:border-zinc-500'
+            }
           >
-            {t('job.saveAgain')}
+            {preview ? t('job.saveFile') : t('job.saveAgain')}
           </a>
           {doneActions}
         </div>

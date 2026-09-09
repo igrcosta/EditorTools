@@ -26,22 +26,47 @@ export function registerJobRoutes(app: FastifyInstance): void {
     return toJobState(job);
   });
 
-  app.get<{ Params: { id: string } }>('/api/jobs/:id/file', async (request, reply) => {
-    const job = UUID_RE.test(request.params.id) ? getJob(request.params.id) : undefined;
-    if (!job || job.status !== 'done' || !job.filePath || !job.filename) {
-      return reply.code(404).send(apiError('not_found'));
-    }
-    const asciiFallback = job.filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, "'");
-    const ext = job.filename.slice(job.filename.lastIndexOf('.')).toLowerCase();
-    return reply
-      .header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream')
-      .header('content-length', job.fileSizeBytes ?? undefined)
-      .header(
-        'content-disposition',
-        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(job.filename)}`,
-      )
-      .send(createReadStream(job.filePath));
-  });
+  app.get<{ Params: { id: string }; Querystring: { inline?: string } }>(
+    '/api/jobs/:id/file',
+    async (request, reply) => {
+      const job = UUID_RE.test(request.params.id) ? getJob(request.params.id) : undefined;
+      if (!job || job.status !== 'done' || !job.filePath || !job.filename || !job.fileSizeBytes) {
+        return reply.code(404).send(apiError('not_found'));
+      }
+      const asciiFallback = job.filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, "'");
+      const ext = job.filename.slice(job.filename.lastIndexOf('.')).toLowerCase();
+      const size = job.fileSizeBytes;
+      const inline = request.query.inline === '1';
+
+      void reply
+        .header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream')
+        .header('accept-ranges', 'bytes')
+        .header(
+          'content-disposition',
+          inline
+            ? 'inline'
+            : `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(job.filename)}`,
+        );
+
+      // Range support so the in-app preview players can seek.
+      const rangeHeader = request.headers.range;
+      const m = rangeHeader ? /^bytes=(\d*)-(\d*)$/.exec(rangeHeader) : null;
+      if (m && (m[1] || m[2])) {
+        const start = m[1] ? Math.min(Number(m[1]), size - 1) : Math.max(0, size - Number(m[2]));
+        const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+        if (start > end) {
+          return reply.code(416).header('content-range', `bytes */${size}`).send();
+        }
+        return reply
+          .code(206)
+          .header('content-range', `bytes ${start}-${end}/${size}`)
+          .header('content-length', end - start + 1)
+          .send(createReadStream(job.filePath, { start, end }));
+      }
+
+      return reply.header('content-length', size).send(createReadStream(job.filePath));
+    },
+  );
 
   app.delete<{ Params: { id: string } }>('/api/jobs/:id', async (request, reply) => {
     const job = UUID_RE.test(request.params.id) ? getJob(request.params.id) : undefined;

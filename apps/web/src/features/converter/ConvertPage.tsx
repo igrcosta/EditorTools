@@ -15,7 +15,7 @@ const AUDIO_FORMATS: ConvertFormat[] = ['mp3', 'wav', 'm4a'];
 
 export function ConvertPage() {
   const { t } = useTranslation('converter');
-  const runner = useJobRunner();
+  const runner = useJobRunner({ autoSave: false });
 
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<ConvertFormat>('mp4');
@@ -107,6 +107,7 @@ export function ConvertPage() {
             starting={false}
             job={runner.job}
             onCancel={runner.cancel}
+            preview
             doneActions={
               <Button variant="secondary" onClick={convert}>
                 {t('convertAgain')}

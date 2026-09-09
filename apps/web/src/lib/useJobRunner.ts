@@ -7,10 +7,11 @@ function codeOf(err: unknown): string {
 }
 
 /**
- * Shared lifecycle for upload-based tools: POST a FormData to a tool endpoint,
- * poll the returned job, auto-save the finished file.
+ * Shared lifecycle for upload-based tools: POST a FormData to a tool endpoint
+ * and poll the returned job. With `autoSave` the finished file downloads
+ * itself; without it the page previews the result and saves on demand.
  */
-export function useJobRunner() {
+export function useJobRunner({ autoSave = true }: { autoSave?: boolean } = {}) {
   const [starting, setStarting] = useState(false);
   const [job, setJob] = useState<JobState | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -68,14 +69,14 @@ export function useJobRunner() {
   // Auto-save the finished file (desktop: straight into the configured folder).
   const savedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (job?.status === 'done' && savedRef.current !== job.id) {
+    if (autoSave && job?.status === 'done' && savedRef.current !== job.id) {
       savedRef.current = job.id;
       const a = document.createElement('a');
       a.href = api.jobFileUrl(job.id);
       a.download = '';
       a.click();
     }
-  }, [job]);
+  }, [autoSave, job]);
 
   return { starting, job, jobActive, errorCode, start, cancel, reset };
 }

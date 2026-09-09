@@ -9,7 +9,9 @@
     "working": "Processing…",
     "cancel": "Cancel",
     "savedAutomatically": "Done — saved to your downloads",
-    "saveAgain": "Save again"
+    "saveAgain": "Save again",
+    "ready": "Done — preview it below, save when you're happy",
+    "saveFile": "Save file"
   },
   "footer": {
     "privacy": "No accounts. No tracking. Files are deleted after processing.",
