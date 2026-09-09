@@ -10,6 +10,34 @@ export interface ProcessHandle {
   done: Promise<void>;
 }
 
+/** Runs ffmpeg and resolves with its full stderr (used for analysis passes like silencedetect). */
+export function runFfmpegCapture(args: string[]): { kill(): void; done: Promise<string> } {
+  const proc = spawn(ffmpegPath, ['-hide_banner', ...args], { windowsHide: true });
+  let stderr = '';
+  proc.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString();
+    if (stderr.length > 4_000_000) stderr = stderr.slice(-2_000_000);
+  });
+  const done = new Promise<string>((resolve, reject) => {
+    proc.on('error', (err) => reject(err));
+    proc.on('close', (code) => {
+      if (code === 0) resolve(stderr);
+      else reject(new Error(stderr.slice(-1500) || `ffmpeg exited with code ${code}`));
+    });
+  });
+  return {
+    kill() {
+      if (!proc.pid) return;
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F']);
+      } else {
+        proc.kill('SIGTERM');
+      }
+    },
+    done,
+  };
+}
+
 /**
  * Runs ffmpeg with monotonic 0–99 progress (100 is set by job finalization).
  * Duration comes from `durationHintSeconds` or is parsed from ffmpeg's own

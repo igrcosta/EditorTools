@@ -1,11 +1,11 @@
 import { rm } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { LOUDNESS_PRESETS, NOISE_LEVELS, type DownloadStarted } from '@editools/shared';
+import { LOUDNESS_PRESETS, NOISE_LEVELS, SILENCE_MODES, type DownloadStarted } from '@editools/shared';
 import { config } from '../config';
 import { apiError } from '../media/errors';
 import { createJob, createTempDir } from '../media/jobs';
-import { audioFixTask, trimTask } from '../media/tasks';
+import { audioFixTask, silenceCutTask, trimTask } from '../media/tasks';
 import { receiveUpload, titleFrom, UploadTooLargeError } from './upload';
 
 const fixFieldsSchema = z
@@ -45,6 +45,39 @@ export function registerAudioRoutes(app: FastifyInstance): void {
           loudness: parsed.data.loudness,
           output: parsed.data.output,
           title: `${titleFrom(upload.originalName)} (clean)`,
+        }),
+        tempDir,
+      );
+      if (job === 'busy') {
+        await rm(tempDir, { recursive: true, force: true });
+        return reply.code(429).send(apiError('busy'));
+      }
+      const started: DownloadStarted = { jobId: job.id };
+      return reply.code(202).send(started);
+    } catch (err) {
+      await rm(tempDir, { recursive: true, force: true });
+      if (err instanceof UploadTooLargeError) return reply.code(413).send(apiError('too_large'));
+      throw err;
+    }
+  });
+
+  app.post('/api/audio/cut-silence', { bodyLimit: config.maxUploadBytes }, async (request, reply) => {
+    if (!request.isMultipart()) return reply.code(400).send(apiError('invalid_file'));
+
+    const tempDir = await createTempDir();
+    try {
+      const upload = await receiveUpload(request, tempDir);
+      const parsed = upload ? z.object({ mode: z.enum(SILENCE_MODES) }).safeParse(upload.fields) : null;
+      if (!upload || !parsed?.success) {
+        await rm(tempDir, { recursive: true, force: true });
+        return reply.code(400).send(apiError('invalid_file'));
+      }
+
+      const job = await createJob(
+        silenceCutTask({
+          inputPath: upload.inputPath,
+          mode: parsed.data.mode,
+          title: `${titleFrom(upload.originalName)} (no silence)`,
         }),
         tempDir,
       );

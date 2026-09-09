@@ -1,0 +1,23 @@
+{
+  "title": "Cut Silence",
+  "description": "Automatically remove the silent parts from a recording or video — like an auto-cut, in one click.",
+  "dropLabel": "Drop your audio or video here or click to browse",
+  "dropHint": "Videos come back as MP4 without the silent parts",
+  "changeFile": "Change file",
+  "modeTitle": "How aggressive?",
+  "mode": {
+    "gentle": "Only long pauses",
+    "balanced": "Balanced",
+    "aggressive": "Aggressive"
+  },
+  "modeHint": {
+    "gentle": "Cuts only pauses longer than 1 second — safest for natural speech.",
+    "balanced": "Cuts pauses over 0.6s, keeping a little breathing room. Good default.",
+    "aggressive": "Cuts almost every pause — tight, fast-paced result."
+  },
+  "process": "Cut silences",
+  "processAgain": "Cut again",
+  "uploading": "Reading file…",
+  "stats": "✂ {{count}} silences cut — {{time}} shorter",
+  "nothingToCut": "No significant silences found — the file was kept as is."
+}

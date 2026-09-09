@@ -5,6 +5,7 @@ import { DownloadPage } from '../features/downloader/DownloadPage';
 import { ConvertPage } from '../features/converter/ConvertPage';
 import { AudioFixPage } from '../features/audiofix/AudioFixPage';
 import { TrimPage } from '../features/trimmer/TrimPage';
+import { SilenceCutPage } from '../features/silencecut/SilenceCutPage';
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
         <Route path="/convert" element={<ConvertPage />} />
         <Route path="/audio-fix" element={<AudioFixPage />} />
         <Route path="/trim-audio" element={<TrimPage />} />
+        <Route path="/cut-silence" element={<SilenceCutPage />} />
       </Route>
     </Routes>
   );

@@ -47,6 +47,7 @@ export interface JobState {
   progress: number | null;
   filename?: string;
   fileSizeBytes?: number;
+  meta?: JobMeta;
   /** One of ERROR_CODES when status === 'error' */
   error?: ErrorCode;
 }
@@ -61,6 +62,15 @@ export const LOUDNESS_PRESETS = ['off', 'youtube', 'social', 'podcast'] as const
 export type LoudnessPreset = (typeof LOUDNESS_PRESETS)[number];
 
 export type AudioFixOutput = 'wav' | 'mp3';
+
+export const SILENCE_MODES = ['gentle', 'balanced', 'aggressive'] as const;
+export type SilenceMode = (typeof SILENCE_MODES)[number];
+
+/** Extra result info some tools report (e.g. silence cutting stats). */
+export interface JobMeta {
+  silencesCut?: number;
+  removedSeconds?: number;
+}
 
 export const ERROR_CODES = [
   'invalid_url',

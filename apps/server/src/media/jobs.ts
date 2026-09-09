@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { ErrorCode, JobStage, JobState, JobStatus } from '@editools/shared';
+import type { ErrorCode, JobMeta, JobStage, JobState, JobStatus } from '@editools/shared';
 import { config } from '../config';
 import { mapYtdlpError, stderrOf } from './errors';
 import type { ProcessHandle } from './ffmpeg';
@@ -10,6 +10,7 @@ import type { ProcessHandle } from './ffmpeg';
 export interface JobCallbacks {
   onProgress: (percent: number) => void;
   onStage: (stage: JobStage) => void;
+  onMeta?: (meta: JobMeta) => void;
 }
 
 /**
@@ -37,6 +38,7 @@ export interface Job {
   filePath?: string;
   filename?: string;
   fileSizeBytes?: number;
+  meta?: JobMeta;
   error?: ErrorCode;
   handle?: ProcessHandle;
   canceled: boolean;
@@ -93,6 +95,7 @@ export function toJobState(job: Job): JobState {
     progress: job.progress,
     filename: job.filename,
     fileSizeBytes: job.fileSizeBytes,
+    meta: job.meta,
     error: job.error,
   };
 }
@@ -131,6 +134,9 @@ function start(job: Job): void {
     },
     onStage: (stage) => {
       job.stage = stage;
+    },
+    onMeta: (meta) => {
+      job.meta = meta;
     },
   });
   job.handle.done

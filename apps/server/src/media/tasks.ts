@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { copyFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type {
@@ -7,9 +7,10 @@ import type {
   LoudnessPreset,
   NoiseLevel,
   OutputFormat,
+  SilenceMode,
 } from '@editools/shared';
 import { config } from '../config';
-import { runFfmpeg } from './ffmpeg';
+import { runFfmpeg, runFfmpegCapture, type ProcessHandle } from './ffmpeg';
 import type { JobTask } from './jobs';
 import { runDownload } from './ytdlp';
 
@@ -185,4 +186,170 @@ export function trimTask(req: {
 
 export function assertDurationAllowed(seconds: number): boolean {
   return seconds <= config.maxDurationSeconds;
+}
+
+interface SilenceParams {
+  noiseDb: number;
+  minSilence: number;
+  /** Silence kept around each cut so edits breathe. */
+  paddingSeconds: number;
+}
+
+const SILENCE_PARAMS: Record<SilenceMode, SilenceParams> = {
+  gentle: { noiseDb: -40, minSilence: 1.0, paddingSeconds: 0.25 },
+  balanced: { noiseDb: -35, minSilence: 0.6, paddingSeconds: 0.15 },
+  aggressive: { noiseDb: -30, minSilence: 0.35, paddingSeconds: 0.08 },
+};
+
+interface Segment {
+  start: number;
+  end: number;
+}
+
+function parseSilences(stderr: string): Segment[] {
+  const silences: Segment[] = [];
+  const re = /silence_start:\s*(-?[\d.]+)[\s\S]*?silence_end:\s*([\d.]+)/g;
+  for (let m = re.exec(stderr); m; m = re.exec(stderr)) {
+    silences.push({ start: Math.max(0, Number(m[1])), end: Number(m[2]) });
+  }
+  return silences;
+}
+
+function parseDuration(stderr: string): number | null {
+  const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(stderr);
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+}
+
+function hasRealVideoStream(stderr: string): boolean {
+  return stderr
+    .split('\n')
+    .some((line) => line.includes(': Video:') && !line.includes('attached pic'));
+}
+
+/** Complement of the silences over [0, duration], with breathing padding. */
+function keptSegments(silences: Segment[], duration: number, padding: number): Segment[] {
+  const kept: Segment[] = [];
+  let cursor = 0;
+  for (const s of silences) {
+    const end = Math.min(s.start + padding, duration);
+    if (end - cursor > 0.05) kept.push({ start: cursor, end });
+    cursor = Math.max(s.end - padding, end);
+  }
+  if (duration - cursor > 0.05) kept.push({ start: cursor, end: duration });
+  // Very long files could produce enormous filter graphs — merge the smallest
+  // gaps until the segment count is manageable.
+  while (kept.length > 250) {
+    let idx = 0;
+    let smallest = Infinity;
+    for (let i = 0; i < kept.length - 1; i += 1) {
+      const gap = kept[i + 1].start - kept[i].end;
+      if (gap < smallest) {
+        smallest = gap;
+        idx = i;
+      }
+    }
+    kept[idx] = { start: kept[idx].start, end: kept[idx + 1].end };
+    kept.splice(idx + 1, 1);
+  }
+  return kept;
+}
+
+/**
+ * AutoCut-style silence removal for audio and video: pass 1 maps silences with
+ * silencedetect, pass 2 rebuilds the media keeping only the audible segments.
+ */
+export function silenceCutTask(req: { inputPath: string; mode: SilenceMode; title?: string }): JobTask {
+  const params = SILENCE_PARAMS[req.mode];
+  let outputName: string | null = null;
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) => {
+      let killed = false;
+      let current: { kill(): void } | null = null;
+
+      const done = (async () => {
+        callbacks.onStage('processing');
+
+        // Pass 1 — detect silences (also tells us duration and stream layout).
+        const detect = runFfmpegCapture([
+          '-i', req.inputPath,
+          '-af', `silencedetect=noise=${params.noiseDb}dB:d=${params.minSilence}`,
+          '-f', 'null', '-',
+        ]);
+        current = detect;
+        const stderr = await detect.done;
+        if (killed) throw new Error('canceled');
+
+        const duration = parseDuration(stderr);
+        if (!duration) throw new Error('could not determine duration');
+        const silences = parseSilences(stderr);
+        const kept = keptSegments(silences, duration, params.paddingSeconds);
+        const keptTotal = kept.reduce((sum, s) => sum + (s.end - s.start), 0);
+        const removed = Math.max(0, duration - keptTotal);
+        callbacks.onMeta?.({ silencesCut: silences.length, removedSeconds: Math.round(removed) });
+
+        const video = hasRealVideoStream(stderr);
+        const inputExt = path.extname(req.inputPath).toLowerCase();
+        outputName = video ? 'output.mp4' : inputExt === '.mp3' ? 'output.mp3' : 'output.wav';
+        const outputPath = path.join(tempDir, outputName);
+
+        // Nothing worth cutting — deliver the file as-is.
+        if (removed < 0.3 || kept.length === 0) {
+          outputName = video ? `output${inputExt || '.mp4'}` : outputName;
+          await copyFile(req.inputPath, path.join(tempDir, outputName));
+          return;
+        }
+
+        // Pass 2 — rebuild without the silences. The filter graph can exceed
+        // Windows' command-line limit, so it goes through a script file.
+        const filters: string[] = [];
+        const concatInputs: string[] = [];
+        kept.forEach((s, i) => {
+          if (video) {
+            filters.push(`[0:v]trim=start=${s.start}:end=${s.end},setpts=PTS-STARTPTS[v${i}]`);
+            filters.push(`[0:a]atrim=start=${s.start}:end=${s.end},asetpts=PTS-STARTPTS[a${i}]`);
+            concatInputs.push(`[v${i}][a${i}]`);
+          } else {
+            filters.push(`[0:a]atrim=start=${s.start}:end=${s.end},asetpts=PTS-STARTPTS[a${i}]`);
+            concatInputs.push(`[a${i}]`);
+          }
+        });
+        filters.push(
+          `${concatInputs.join('')}concat=n=${kept.length}:v=${video ? 1 : 0}:a=1${video ? '[v][a]' : '[a]'}`,
+        );
+        const scriptPath = path.join(tempDir, 'filter.txt');
+        await writeFile(scriptPath, filters.join(';\n'), 'utf8');
+
+        const outputArgs = video
+          ? ['-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+          : outputName === 'output.mp3'
+            ? ['-map', '[a]', '-c:a', 'libmp3lame', '-q:a', '0']
+            : ['-map', '[a]', '-c:a', 'pcm_s16le'];
+
+        const render = runFfmpeg(
+          ['-i', req.inputPath, '-filter_complex_script', scriptPath, ...outputArgs, outputPath],
+          keptTotal,
+          callbacks,
+        );
+        current = render;
+        await render.done;
+      })();
+
+      const handle: ProcessHandle = {
+        kill() {
+          killed = true;
+          current?.kill();
+        },
+        done,
+      };
+      return handle;
+    },
+    resolveOutput: async (tempDir) => {
+      if (!outputName) return undefined;
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
 }
