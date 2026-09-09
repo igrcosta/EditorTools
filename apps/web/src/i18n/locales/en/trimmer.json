@@ -5,6 +5,7 @@
   "dropHint": "MP3, WAV, M4A, FLAC, OGG and more",
   "changeFile": "Change file",
   "loadingWave": "Building waveform…",
+  "loadFailed": "We couldn't read this audio file. Try another format (MP3, WAV, M4A).",
   "dragHint": "Drag the edges of the highlighted region to choose what to keep.",
   "playSelection": "▶ Play selection",
   "pause": "Pause",

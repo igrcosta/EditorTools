@@ -28,3 +28,20 @@ body {
 .progress-indeterminate {
   animation: indeterminate-slide 1.2s ease-in-out infinite;
 }
+
+@keyframes wave-skeleton-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 0.9;
+  }
+}
+
+.wave-skeleton-bar {
+  transform-origin: bottom;
+  animation: wave-skeleton-pulse 1.1s ease-in-out infinite;
+}

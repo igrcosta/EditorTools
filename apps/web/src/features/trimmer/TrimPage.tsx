@@ -17,6 +17,7 @@ export function TrimPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [waveReady, setWaveReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
@@ -29,6 +30,7 @@ export function TrimPage() {
   useEffect(() => {
     if (!file || !containerRef.current) return;
     setWaveReady(false);
+    setLoadError(false);
     setRange(null);
     const url = URL.createObjectURL(file);
     const ws = WaveSurfer.create({
@@ -41,8 +43,13 @@ export function TrimPage() {
       normalize: true,
     });
     const regions = ws.registerPlugin(RegionsPlugin.create());
-    ws.on('ready', () => {
+    // 'decode' fires as soon as the audio data is usable (duration known,
+    // waveform drawn); 'ready' additionally waits for playback readiness and
+    // can be delayed — unlock the UI on whichever comes first.
+    const unlock = () => {
+      if (regionRef.current) return;
       const duration = ws.getDuration();
+      if (!duration) return;
       const region = regions.addRegion({
         start: 0,
         end: duration,
@@ -53,6 +60,12 @@ export function TrimPage() {
       regionRef.current = region;
       setRange({ start: 0, end: duration });
       setWaveReady(true);
+    };
+    ws.on('decode', unlock);
+    ws.on('ready', unlock);
+    ws.on('error', () => {
+      setWaveReady(false);
+      setLoadError(true);
     });
     regions.on('region-updated', (region) => {
       regionRef.current = region;
@@ -127,12 +140,29 @@ export function TrimPage() {
             </button>
           </div>
 
-          <div ref={containerRef} className="rounded-md bg-zinc-950/60 p-2" />
-          {!waveReady && (
+          <div className="relative overflow-hidden rounded-md bg-zinc-950/60 p-2">
+            <div ref={containerRef} />
+            {!waveReady && !loadError && (
+              <div className="absolute inset-0 flex items-end gap-[3px] px-3 pb-3" aria-hidden>
+                {Array.from({ length: 56 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="wave-skeleton-bar flex-1 rounded-sm bg-zinc-700/70"
+                    style={{
+                      height: `${18 + ((i * 37) % 58)}%`,
+                      animationDelay: `${(i % 14) * 90}ms`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          {!waveReady && !loadError && (
             <div className="flex items-center gap-2 text-sm text-zinc-400">
               <Spinner /> {t('loadingWave')}
             </div>
           )}
+          {loadError && <ErrorMessage>{t('loadFailed')}</ErrorMessage>}
 
           {waveReady && range && (
             <>

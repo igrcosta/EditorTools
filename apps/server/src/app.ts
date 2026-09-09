@@ -30,6 +30,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       directives: {
         // Media thumbnails come from the source platforms (e.g. i.ytimg.com).
         'img-src': ["'self'", 'data:', 'https:'],
+        // Local files opened by the tools (waveform preview/playback) use blob: URLs.
+        'media-src': ["'self'", 'blob:'],
+        'connect-src': ["'self'", 'blob:'],
+        'worker-src': ["'self'", 'blob:'],
       },
     },
   });
