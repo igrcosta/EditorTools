@@ -6,6 +6,9 @@ interface DownloaderState {
   analyzing: boolean;
   analysis: AnalyzeResult | null;
   analyzedUrl: string | null;
+  /** Quality currently being downloaded (mp4 only). */
+  height: number | undefined;
+  output: OutputFormat;
   starting: boolean;
   job: JobState | null;
   errorCode: string | null;
@@ -15,6 +18,8 @@ const IDLE: DownloaderState = {
   analyzing: false,
   analysis: null,
   analyzedUrl: null,
+  height: undefined,
+  output: 'mp4',
   starting: false,
   job: null,
   errorCode: null,
@@ -24,40 +29,61 @@ function codeOf(err: unknown): string {
   return err instanceof ApiClientError ? err.code : 'download_failed';
 }
 
+async function startJob(
+  url: string,
+  analysis: AnalyzeResult,
+  output: OutputFormat,
+  height: number | undefined,
+): Promise<JobState> {
+  const { jobId } = await api.startDownload({
+    url,
+    output,
+    height: output === 'mp4' ? height : undefined,
+    title: analysis.title,
+  });
+  return { id: jobId, status: 'queued', progress: null };
+}
+
 export function useDownloader() {
   const [state, setState] = useState<DownloaderState>(IDLE);
 
-  const analyze = useCallback(async (url: string) => {
-    setState({ ...IDLE, analyzing: true });
+  /** One-shot flow: analyze the URL and immediately download with the recommended quality. */
+  const run = useCallback(async (url: string, output: OutputFormat) => {
+    setState({ ...IDLE, output, analyzing: true });
+    let analysis: AnalyzeResult;
     try {
-      const analysis = await api.analyze(url);
-      setState({ ...IDLE, analysis, analyzedUrl: url });
+      analysis = await api.analyze(url);
     } catch (err) {
-      setState({ ...IDLE, errorCode: codeOf(err) });
+      setState({ ...IDLE, output, errorCode: codeOf(err) });
+      return;
+    }
+    const height = analysis.qualities.find((q) => q.recommended)?.height;
+    setState({ ...IDLE, output, analysis, analyzedUrl: url, height, starting: true });
+    try {
+      const job = await startJob(url, analysis, output, height);
+      setState((s) => ({ ...s, starting: false, job }));
+    } catch (err) {
+      setState((s) => ({ ...s, starting: false, errorCode: codeOf(err) }));
     }
   }, []);
 
-  const start = useCallback(
-    async (output: OutputFormat, height?: number) => {
-      if (!state.analyzedUrl || !state.analysis) return;
-      setState((s) => ({ ...s, starting: true, errorCode: null, job: null }));
+  /** Re-download the analyzed media with a different quality or format. */
+  const restart = useCallback(
+    async (output: OutputFormat, height: number | undefined) => {
+      const { analyzedUrl, analysis, job } = state;
+      if (!analyzedUrl || !analysis) return;
+      if (job && (job.status === 'queued' || job.status === 'running')) {
+        void api.cancelJob(job.id).catch(() => undefined);
+      }
+      setState((s) => ({ ...s, output, height, starting: true, job: null, errorCode: null }));
       try {
-        const { jobId } = await api.startDownload({
-          url: state.analyzedUrl,
-          output,
-          height: output === 'mp4' ? height : undefined,
-          title: state.analysis.title,
-        });
-        setState((s) => ({
-          ...s,
-          starting: false,
-          job: { id: jobId, status: 'queued', progress: null },
-        }));
+        const newJob = await startJob(analyzedUrl, analysis, output, height);
+        setState((s) => ({ ...s, starting: false, job: newJob }));
       } catch (err) {
         setState((s) => ({ ...s, starting: false, errorCode: codeOf(err) }));
       }
     },
-    [state.analyzedUrl, state.analysis],
+    [state],
   );
 
   const cancel = useCallback(() => {
@@ -101,5 +127,5 @@ export function useDownloader() {
     };
   }, [jobId, jobActive]);
 
-  return { ...state, analyze, start, cancel, reset };
+  return { ...state, run, restart, cancel, reset };
 }

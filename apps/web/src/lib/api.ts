@@ -39,10 +39,23 @@ const jsonPost = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+export interface DesktopSettings {
+  downloadDir: string;
+}
+
 export const api = {
   analyze: (url: string) => request<AnalyzeResult>('/api/analyze', jsonPost({ url })),
   startDownload: (req: DownloadRequest) => request<DownloadStarted>('/api/download', jsonPost(req)),
   getJob: (id: string) => request<JobState>(`/api/jobs/${id}`),
   cancelJob: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),
   jobFileUrl: (id: string) => `/api/jobs/${id}/file`,
+  /** Present only inside the desktop app; null in the browser. */
+  getDesktopSettings: async (): Promise<DesktopSettings | null> => {
+    try {
+      return await request<DesktopSettings>('/api/desktop/settings');
+    } catch {
+      return null;
+    }
+  },
+  chooseDesktopFolder: () => request<DesktopSettings>('/api/desktop/choose-folder', { method: 'POST' }),
 };

@@ -36,9 +36,13 @@ export interface DownloadStarted {
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error';
 
+export type JobStage = 'downloading' | 'processing';
+
 export interface JobState {
   id: string;
   status: JobStatus;
+  /** Current phase while running: fetching media vs. merging/converting at the end. */
+  stage?: JobStage;
   /** 0–100 when known, null when progress cannot be measured (UI shows indeterminate) */
   progress: number | null;
   filename?: string;

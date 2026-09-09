@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { ErrorCode, JobState, JobStatus, OutputFormat } from '@editools/shared';
+import type { ErrorCode, JobStage, JobState, JobStatus, OutputFormat } from '@editools/shared';
 import { config } from '../config';
 import { mapYtdlpError, stderrOf } from './errors';
 import { runDownload, type DownloadHandle } from './ytdlp';
@@ -10,6 +10,7 @@ import { runDownload, type DownloadHandle } from './ytdlp';
 export interface Job {
   id: string;
   status: JobStatus;
+  stage?: JobStage;
   progress: number | null;
   url: string;
   output: OutputFormat;
@@ -70,6 +71,7 @@ export function toJobState(job: Job): JobState {
   return {
     id: job.id,
     status: job.status,
+    stage: job.stage,
     progress: job.progress,
     filename: job.filename,
     fileSizeBytes: job.fileSizeBytes,
@@ -104,10 +106,16 @@ function pump(): void {
 function start(job: Job): void {
   running += 1;
   job.status = 'running';
+  job.stage = 'downloading';
   job.handle = runDownload(
     { url: job.url, output: job.output, height: job.height, tempDir: job.tempDir },
-    (percent) => {
-      job.progress = percent;
+    {
+      onProgress: (percent) => {
+        job.progress = percent;
+      },
+      onStage: (stage) => {
+        job.stage = stage;
+      },
     },
   );
   job.handle.done
@@ -150,6 +158,7 @@ async function finalize(job: Job): Promise<void> {
   job.fileSizeBytes = (await stat(job.filePath)).size;
   job.filename = sanitizeFilename(job.title, path.basename(file, expectedExt)) + expectedExt;
   job.progress = 100;
+  job.stage = undefined;
   job.status = 'done';
 }
 

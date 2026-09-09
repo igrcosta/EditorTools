@@ -62,9 +62,14 @@ export interface DownloadHandle {
   done: Promise<void>;
 }
 
+export interface DownloadCallbacks {
+  onProgress: (percent: number) => void;
+  onStage: (stage: 'downloading' | 'processing') => void;
+}
+
 export function runDownload(
   opts: { url: string; output: OutputFormat; height?: number; tempDir: string },
-  onProgress: (percent: number) => void,
+  callbacks: DownloadCallbacks,
 ): DownloadHandle {
   const flags: Record<string, unknown> = {
     ...baseFlags,
@@ -72,6 +77,8 @@ export function runDownload(
     output: path.join(opts.tempDir, '%(id)s.%(ext)s'),
     matchFilter: `duration <=? ${config.maxDurationSeconds}`,
     maxFilesize: config.maxFilesize,
+    // Fragmented sources (YouTube DASH/HLS) download much faster in parallel.
+    concurrentFragments: 8,
   };
 
   if (opts.output === 'mp4') {
@@ -90,11 +97,39 @@ export function runDownload(
     timeout: config.jobTimeoutMs,
   });
 
-  proc.stdout?.on('data', (chunk: Buffer) => {
-    for (const line of chunk.toString().split(/\r?\n/)) {
-      const m = /\[download\]\s+(\d+(?:\.\d+)?)%/.exec(line);
-      if (m) onProgress(Math.min(100, Math.round(parseFloat(m[1]))));
+  // yt-dlp downloads each stream 0→100% (video, then audio for mp4), which made the
+  // progress bar jump backwards. Scale the passes into one monotonic 0→99 value:
+  // mp4: video 0–88, audio 88–99; mp3: 0–97; final merge/convert holds at 99.
+  let pass = 0;
+  let emitted = 0;
+  const scale = (raw: number): number => {
+    if (opts.output === 'mp3') return raw * 0.97;
+    return pass <= 1 ? raw * 0.88 : 88 + raw * 0.11;
+  };
+  const handleLine = (line: string): void => {
+    if (line.includes('[download] Destination:')) {
+      pass += 1;
+      return;
     }
+    const m = /\[download\]\s+(\d+(?:\.\d+)?)%/.exec(line);
+    if (m) {
+      const scaled = Math.min(99, Math.round(scale(parseFloat(m[1]))));
+      if (scaled > emitted) {
+        emitted = scaled;
+        callbacks.onProgress(scaled);
+      }
+      return;
+    }
+    if (/\[Merger\]|\[ExtractAudio\]/.test(line)) {
+      callbacks.onStage('processing');
+      if (emitted < 99) {
+        emitted = 99;
+        callbacks.onProgress(99);
+      }
+    }
+  };
+  proc.stdout?.on('data', (chunk: Buffer) => {
+    for (const line of chunk.toString().split(/\r?\n/)) handleLine(line);
   });
 
   return {

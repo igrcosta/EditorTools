@@ -10,8 +10,13 @@
     "mp3": "MP3 · Audio"
   },
   "quality": "Quality",
+  "qualityHint": "click to switch",
   "recommended": "Recommended",
   "download": "Download",
+  "savedAutomatically": "Done — saved to your downloads",
+  "saveAgain": "Save again",
+  "savingTo": "Saving to",
+  "changeFolder": "Change",
   "starting": "Starting…",
   "queued": "Waiting for a free slot…",
   "downloading": "Downloading…",
