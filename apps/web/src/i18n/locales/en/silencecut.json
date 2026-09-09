@@ -10,6 +10,10 @@
   "playSelection": "▶ Play selection",
   "pause": "Pause",
   "selected": "keeping",
+  "sampleButton": "Mark as silence sample",
+  "sampleHint": "For more precise cuts: select a moment with only background noise, then click \"Mark as silence sample\" — the cuts calibrate to your recording.",
+  "sampleChip": "Calibrated from {{from}}–{{to}} · cutting below {{db}} dB",
+  "sampleClear": "clear",
   "modeTitle": "Cut silences",
   "mode": {
     "off": "Off · just trim",

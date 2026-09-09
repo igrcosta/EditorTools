@@ -14,6 +14,42 @@ import { useJobRunner } from '../../lib/useJobRunner';
 
 const MODES: SilenceMode[] = ['off', 'gentle', 'balanced', 'aggressive'];
 
+interface NoiseSample {
+  start: number;
+  end: number;
+  thresholdDb: number;
+}
+
+/**
+ * Measures the selected span of the decoded audio and derives a silencedetect
+ * threshold slightly above the sample's level, so "silence" matches this
+ * recording's actual room tone.
+ */
+function measureThresholdDb(buffer: AudioBuffer, start: number, end: number): number {
+  const from = Math.max(0, Math.floor(start * buffer.sampleRate));
+  const to = Math.min(buffer.length, Math.ceil(end * buffer.sampleRate));
+  if (to <= from) return -35;
+  const stride = Math.max(1, Math.floor((to - from) / 500_000));
+  let peak = 0;
+  let sumSquares = 0;
+  let count = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
+    const data = buffer.getChannelData(ch);
+    for (let i = from; i < to; i += stride) {
+      const v = Math.abs(data[i]);
+      if (v > peak) peak = v;
+      sumSquares += v * v;
+      count += 1;
+    }
+  }
+  const rms = Math.sqrt(sumSquares / Math.max(1, count));
+  const peakDb = 20 * Math.log10(Math.max(peak, 1e-6));
+  const rmsDb = 20 * Math.log10(Math.max(rms, 1e-6));
+  // A little headroom above the sample so similar moments count as silence.
+  const threshold = Math.max(peakDb + 4, rmsDb + 10);
+  return Math.round(Math.min(-15, Math.max(-70, threshold)));
+}
+
 export function SilenceCutPage() {
   const { t } = useTranslation('silencecut');
   const runner = useJobRunner({ autoSave: false });
@@ -25,6 +61,7 @@ export function SilenceCutPage() {
   const [playing, setPlaying] = useState(false);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
   const [duration, setDuration] = useState(0);
+  const [sample, setSample] = useState<NoiseSample | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
@@ -40,6 +77,7 @@ export function SilenceCutPage() {
     setPreviewFailed(false);
     setRange(null);
     setDuration(0);
+    setSample(null);
     const url = URL.createObjectURL(file);
     const ws = WaveSurfer.create({
       container: containerRef.current,
@@ -110,6 +148,19 @@ export function SilenceCutPage() {
     else region.play();
   };
 
+  /** Takes the current selection as a background-noise sample, then restores the full region. */
+  const markSample = () => {
+    const ws = wavesurferRef.current;
+    const region = regionRef.current;
+    if (!ws || !region || !range) return;
+    const buffer = ws.getDecodedData();
+    if (!buffer) return;
+    const thresholdDb = measureThresholdDb(buffer, range.start, range.end);
+    setSample({ start: range.start, end: range.end, thresholdDb });
+    region.setOptions({ start: 0, end: duration });
+    setRange({ start: 0, end: duration });
+  };
+
   const process = () => {
     if (!file) return;
     const form = new FormData();
@@ -118,6 +169,7 @@ export function SilenceCutPage() {
       form.append('start', range.start.toFixed(3));
       form.append('end', range.end.toFixed(3));
     }
+    if (mode !== 'off' && sample) form.append('noiseDb', String(sample.thresholdDb));
     form.append('file', file);
     void runner.start('/api/audio/cut-silence', form);
   };
@@ -181,11 +233,18 @@ export function SilenceCutPage() {
           {previewFailed && <p className="text-sm text-zinc-500">{t('previewUnavailable')}</p>}
 
           {waveReady && range && (
-            <div className="flex items-center justify-between text-sm text-zinc-300">
-              <Button variant="secondary" onClick={togglePlay}>
-                {playing ? t('pause') : t('playSelection')}
-              </Button>
-              <span>
+            <div className="flex items-center justify-between gap-2 text-sm text-zinc-300">
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={togglePlay}>
+                  {playing ? t('pause') : t('playSelection')}
+                </Button>
+                {mode !== 'off' && (
+                  <Button variant="secondary" onClick={markSample} disabled={busy}>
+                    {t('sampleButton')}
+                  </Button>
+                )}
+              </div>
+              <span className="shrink-0">
                 {formatDuration(Math.floor(range.start))} → {formatDuration(Math.ceil(range.end))}{' '}
                 <span className="text-zinc-500">
                   · {t('selected')} {formatDuration(Math.max(1, Math.round(range.end - range.start)))}
@@ -193,7 +252,29 @@ export function SilenceCutPage() {
               </span>
             </div>
           )}
-          {waveReady && <p className="text-xs text-zinc-500">{t('dragHint')}</p>}
+          {waveReady && mode !== 'off' && sample && (
+            <p className="flex items-center gap-2 text-xs text-zinc-400">
+              <span className="rounded border border-accent/40 bg-accent/10 px-2 py-1">
+                {t('sampleChip', {
+                  from: formatDuration(Math.floor(sample.start)),
+                  to: formatDuration(Math.ceil(sample.end)),
+                  db: sample.thresholdDb,
+                })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSample(null)}
+                className="cursor-pointer text-zinc-500 hover:text-zinc-300"
+              >
+                ✕ {t('sampleClear')}
+              </button>
+            </p>
+          )}
+          {waveReady && (
+            <p className="text-xs text-zinc-500">
+              {mode !== 'off' && !sample ? t('sampleHint') : t('dragHint')}
+            </p>
+          )}
 
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('modeTitle')}</p>

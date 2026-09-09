@@ -21,6 +21,7 @@ const cutSilenceFieldsSchema = z
     mode: z.enum(SILENCE_MODES),
     start: z.coerce.number().min(0).optional(),
     end: z.coerce.number().positive().optional(),
+    noiseDb: z.coerce.number().min(-70).max(-15).optional(),
   })
   .refine((f) => f.start === undefined || f.end === undefined || f.end > f.start, {
     message: 'invalid range',
@@ -74,12 +75,13 @@ export function registerAudioRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
-      const { mode, start, end } = parsed.data;
+      const { mode, start, end, noiseDb } = parsed.data;
       const job = await createJob(
         silenceCutTask({
           inputPath: upload.inputPath,
           mode,
           range: start !== undefined && end !== undefined ? { start, end } : undefined,
+          noiseDbOverride: noiseDb,
           title: `${titleFrom(upload.originalName)} (${mode === 'off' ? 'trimmed' : 'no silence'})`,
         }),
         tempDir,

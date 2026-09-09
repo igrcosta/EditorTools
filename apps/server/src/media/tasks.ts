@@ -231,9 +231,12 @@ export function silenceCutTask(req: {
   inputPath: string;
   mode: SilenceMode;
   range?: { start: number; end: number };
+  /** Threshold calibrated from a user-selected noise sample; overrides the mode preset. */
+  noiseDbOverride?: number;
   title?: string;
 }): JobTask {
   const params = req.mode === 'off' ? null : SILENCE_PARAMS[req.mode];
+  const noiseDb = req.noiseDbOverride ?? params?.noiseDb;
   let outputName: string | null = null;
   return {
     title: req.title,
@@ -249,7 +252,7 @@ export function silenceCutTask(req: {
         const detect = runFfmpegCapture([
           '-i', req.inputPath,
           ...(params
-            ? ['-af', `silencedetect=noise=${params.noiseDb}dB:d=${params.minSilence}`]
+            ? ['-af', `silencedetect=noise=${noiseDb}dB:d=${params.minSilence}`]
             : []),
           '-f', 'null', '-',
         ]);
