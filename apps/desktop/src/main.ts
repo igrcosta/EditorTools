@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
@@ -90,6 +91,23 @@ async function startEmbeddedServer(): Promise<number> {
   return address.port;
 }
 
+/**
+ * Sites change constantly and yt-dlp's nightly channel carries the extractor
+ * fixes; self-update in the background on every launch so downloads keep
+ * working without shipping a new Editools version. Failures are harmless —
+ * the bundled binary keeps being used.
+ */
+function updateYtdlpInBackground(): void {
+  const bin = process.env.YTDLP_PATH;
+  if (!bin || !existsSync(bin)) return;
+  try {
+    const proc = spawn(bin, ['-U', '--update-to', 'nightly'], { stdio: 'ignore' });
+    proc.on('error', () => undefined);
+  } catch {
+    // offline or binary not writable — ignore
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Downloads
 // ---------------------------------------------------------------------------
@@ -161,6 +179,7 @@ if (!gotLock) {
     console.log(`Editools desktop ready at http://127.0.0.1:${port}`);
     setupDownloads();
     createWindow(port);
+    updateYtdlpInBackground();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow(port);

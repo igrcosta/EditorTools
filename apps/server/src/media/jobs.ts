@@ -23,6 +23,7 @@ export interface Job {
   error?: ErrorCode;
   handle?: DownloadHandle;
   canceled: boolean;
+  attempts: number;
   createdAt: number;
 }
 
@@ -55,6 +56,7 @@ export async function createJob(req: {
     title: req.title,
     tempDir,
     canceled: false,
+    attempts: 0,
     createdAt: Date.now(),
   };
   jobs.set(job.id, job);
@@ -121,9 +123,20 @@ function start(job: Job): void {
   job.handle.done
     .then(() => finalize(job))
     .catch(async (err: unknown) => {
+      const code = job.canceled ? 'canceled' : mapYtdlpError(stderrOf(err));
+      log.debug({ jobId: job.id, attempt: job.attempts + 1, stderr: stderrOf(err) }, 'yt-dlp failed');
+      // Some sites fail intermittently (e.g. TikTok's anti-bot page roulette) —
+      // retry generic failures transparently before surfacing an error.
+      if (!job.canceled && code === 'download_failed' && job.attempts < 2) {
+        job.attempts += 1;
+        job.status = 'queued';
+        job.progress = null;
+        job.stage = undefined;
+        queue.unshift(job);
+        return;
+      }
       job.status = 'error';
-      job.error = job.canceled ? 'canceled' : mapYtdlpError(stderrOf(err));
-      log.debug({ jobId: job.id, stderr: stderrOf(err) }, 'yt-dlp failed');
+      job.error = code;
       await cleanupTempDir(job);
     })
     .finally(() => {

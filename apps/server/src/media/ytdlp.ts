@@ -84,6 +84,8 @@ export function runDownload(
     maxFilesize: config.maxFilesize,
     // Fragmented sources (YouTube DASH/HLS) download much faster in parallel.
     concurrentFragments: 8,
+    // Some sites (TikTok) intermittently serve pages the extractor can't parse.
+    extractorRetries: 5,
   };
 
   if (opts.output === 'mp4') {
