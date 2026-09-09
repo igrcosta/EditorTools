@@ -3,6 +3,33 @@
   "tagline": "Your editing toolbox.",
   "subtitle": "Do the boring work faster.",
   "comingSoon": "Coming soon",
+  "nav": {
+    "downloader": "Master Downloader",
+    "audio": "Audio",
+    "convert": "Convert"
+  },
+  "home": {
+    "downloader": {
+      "title": "Master Downloader",
+      "description": "Save video or audio from any link"
+    },
+    "audio": {
+      "title": "Audio Tools",
+      "description": "Cut silences, clean noise, trim"
+    },
+    "convert": {
+      "title": "Convert Files",
+      "description": "Any format, one click"
+    }
+  },
+  "audioHub": {
+    "title": "Audio Tools",
+    "description": "Everything to make a recording usable — pick a tool below.",
+    "tabs": {
+      "silence": "Cut Silence & Trim",
+      "fix": "Fix Audio"
+    }
+  },
   "job": {
     "starting": "Starting…",
     "queued": "Waiting for a free slot…",

@@ -1,54 +1,44 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { DotField } from '../components/DotField';
 
-interface Tool {
-  key: 'download' | 'convert' | 'fixAudio' | 'cutSilence';
-  to?: string;
-}
-
-const TOOLS: Tool[] = [
-  { key: 'download', to: '/download' },
-  { key: 'convert', to: '/convert' },
-  { key: 'fixAudio', to: '/audio-fix' },
-  { key: 'cutSilence', to: '/cut-silence' },
-];
+const CTAS = [
+  { to: '/download', key: 'downloader' },
+  { to: '/audio', key: 'audio' },
+  { to: '/convert', key: 'convert' },
+] as const;
 
 export function HomePage() {
   const { t } = useTranslation();
   return (
-    <div>
-      <div className="mb-10 text-center">
-        <h1 className="text-2xl font-semibold text-zinc-100">{t('tagline')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('subtitle')}</p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {TOOLS.map((tool) =>
-          tool.to ? (
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-black">
+      <DotField className="absolute inset-0" />
+      {/* Vignette so the field never competes with the copy. */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.75)_100%)]" />
+
+      <div className="relative z-10 flex flex-col items-center px-4 py-16 text-center">
+        <p className="text-xs font-medium uppercase tracking-[0.4em] text-accent/80">
+          {t('appName')}
+        </p>
+        <h1 className="mt-5 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-4xl font-semibold text-transparent sm:text-6xl">
+          {t('tagline')}
+        </h1>
+        <p className="mt-4 text-base text-zinc-400">{t('subtitle')}</p>
+
+        <div className="mt-12 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
+          {CTAS.map(({ to, key }) => (
             <Link
-              key={tool.key}
-              to={tool.to}
-              className="group rounded-lg border border-zinc-800 bg-zinc-900 p-5 transition-colors hover:border-accent"
+              key={to}
+              to={to}
+              className="group rounded-lg border border-zinc-700/60 bg-zinc-950/70 p-4 text-left backdrop-blur transition-colors hover:border-accent"
             >
-              <h2 className="font-medium text-zinc-100 group-hover:text-accent">
-                {t(`tools.${tool.key}.title`)}
-              </h2>
-              <p className="mt-1 text-sm text-zinc-400">{t(`tools.${tool.key}.description`)}</p>
+              <p className="font-medium text-zinc-100 group-hover:text-accent">
+                {t(`home.${key}.title`)}
+              </p>
+              <p className="mt-1 text-sm text-zinc-500">{t(`home.${key}.description`)}</p>
             </Link>
-          ) : (
-            <div
-              key={tool.key}
-              className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-5 opacity-60"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-zinc-300">{t(`tools.${tool.key}.title`)}</h2>
-                <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">
-                  {t('comingSoon')}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-zinc-500">{t(`tools.${tool.key}.description`)}</p>
-            </div>
-          ),
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );

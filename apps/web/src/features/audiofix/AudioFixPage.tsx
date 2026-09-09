@@ -14,7 +14,7 @@ const NOISE_OPTIONS: NoiseLevel[] = ['off', 'light', 'balanced', 'strong'];
 const LOUDNESS_OPTIONS: LoudnessPreset[] = ['off', 'youtube', 'social', 'podcast'];
 const OUTPUT_OPTIONS: AudioFixOutput[] = ['wav', 'mp3'];
 
-export function AudioFixPage() {
+export function AudioFixPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('audiofix');
   const runner = useJobRunner({ autoSave: false });
 
@@ -63,10 +63,12 @@ export function AudioFixPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
+          <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
+        </div>
+      )}
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="audio/*,video/*" onFile={onFile} />}
 

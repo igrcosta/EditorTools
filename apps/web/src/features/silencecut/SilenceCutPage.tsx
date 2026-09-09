@@ -50,7 +50,7 @@ function measureThresholdDb(buffer: AudioBuffer, start: number, end: number): nu
   return Math.round(Math.min(-15, Math.max(-70, threshold)));
 }
 
-export function SilenceCutPage() {
+export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('silencecut');
   const runner = useJobRunner({ autoSave: false });
 
@@ -84,7 +84,7 @@ export function SilenceCutPage() {
       url,
       height: 96,
       waveColor: '#3f3f46',
-      progressColor: '#34d399',
+      progressColor: '#a78bfa',
       cursorColor: '#e4e4e7',
       normalize: true,
       // Play through WebAudio — the same path that decodes the waveform —
@@ -99,7 +99,7 @@ export function SilenceCutPage() {
       const region = regions.addRegion({
         start: 0,
         end: total,
-        color: 'rgba(52, 211, 153, 0.15)',
+        color: 'rgba(167, 139, 250, 0.16)',
         drag: true,
         resize: true,
       });
@@ -178,10 +178,12 @@ export function SilenceCutPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
+          <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
+        </div>
+      )}
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="audio/*,video/*" onFile={onFile} />}
 
