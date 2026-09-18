@@ -4,7 +4,9 @@ import path from 'node:path';
 import type {
   AudioFixOutput,
   BgOutput,
+  CaptionPosition,
   CaptionPreset,
+  CaptionWord,
   ConvertFormat,
   LoudnessPreset,
   NoiseLevel,
@@ -18,7 +20,7 @@ import type {
 } from '@editools/shared';
 import { config } from '../config';
 import { ISNET_SIZE, predictAlphaMask } from './background';
-import { buildAssTrack } from './captions';
+import { buildAssTrack, normalizeWords } from './captions';
 import {
   aspectRatio,
   buildTrack,
@@ -708,12 +710,13 @@ export function faceTrackTask(req: {
 // ---------------------------------------------------------------------------
 
 /**
- * Automatic captions: pass 1 extracts a 16kHz mono WAV and transcribes it
- * with whisper.cpp (word-level timestamps); the words become an .ass subtitle
- * track styled per the chosen preset, burned into the video by pass 2.
+ * Stage 1 — transcribe only: extracts a 16kHz mono WAV, runs whisper.cpp
+ * (word-level timestamps) and writes the result as `words.json`. The web app
+ * lets the user edit the text/timing of each word before stage 2 renders it,
+ * so this task's "output" is data, not a video — same JobTask shape either way.
  */
-export function captionsTask(req: { inputPath: string; preset: CaptionPreset; title?: string }): JobTask {
-  const outputName = 'output.mp4';
+export function transcribeCaptionsTask(req: { inputPath: string; title?: string }): JobTask {
+  const outputName = 'words.json';
   return {
     title: req.title,
     maxAttempts: 1,
@@ -728,7 +731,7 @@ export function captionsTask(req: { inputPath: string; preset: CaptionPreset; ti
         const model = modelPath('whisperBase');
         if (!model) throw new Error('EDITOOLS_ASR_MODEL_MISSING: whisper model file is missing');
 
-        // Pass 1a — extract a 16kHz mono WAV (whisper.cpp's expected input format).
+        // Extract a 16kHz mono WAV (whisper.cpp's expected input format).
         const wavPath = path.join(tempDir, 'audio.wav');
         await track(
           runFfmpeg(
@@ -739,19 +742,58 @@ export function captionsTask(req: { inputPath: string; preset: CaptionPreset; ti
         ).done;
         assertAlive();
 
-        // Pass 1b — transcribe. whisper.cpp's own progress reporting is unreliable, so this
+        // Transcribe. whisper.cpp's own progress reporting is unreliable, so this
         // step stays indeterminate (matches how the other pipelines treat helper passes).
         await track(transcribe(wavPath, model, tempDir)).done;
         assertAlive();
-        const words = await readTranscript(tempDir);
+        const { words, language } = await readTranscript(tempDir);
         if (words.length === 0) throw new Error('EDITOOLS_NO_SPEECH_DETECTED');
-        callbacks.onMeta?.({ captionWordCount: words.length });
+        callbacks.onMeta?.({ captionWordCount: words.length, captionLanguage: language });
 
-        // Pass 1c — style the transcript into an .ass track for the chosen preset.
+        await writeFile(
+          path.join(tempDir, outputName),
+          JSON.stringify({ words, videoWidth: probe.width, videoHeight: probe.height }),
+          'utf8',
+        );
+      }),
+    resolveOutput: async (tempDir) => {
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
+}
+
+/**
+ * Stage 2 — render: takes the (possibly user-edited) word list plus a style
+ * preset and position zone, builds the .ass track and burns it in. No ASR
+ * here at all, so it's a plain single-pass ffmpeg pipeline.
+ */
+export function renderCaptionsTask(req: {
+  inputPath: string;
+  words: CaptionWord[];
+  preset: CaptionPreset;
+  position: CaptionPosition;
+  title?: string;
+}): JobTask {
+  const outputName = 'output.mp4';
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
+        callbacks.onStage('processing');
+        const probe = await track(probeMedia(req.inputPath)).done;
+        assertAlive();
+        if (!probe?.hasVideo || !probe.duration) throw new Error('EDITOOLS_INVALID_FILE: no video stream');
+        if (probe.duration > config.maxCaptionSeconds) throw new Error('EDITOOLS_TOO_LONG');
+
+        const words = normalizeWords(req.words);
+        if (words.length === 0) throw new Error('EDITOOLS_INVALID_FILE: no caption text');
+
         const assPath = path.join(tempDir, 'captions.ass');
-        await writeFile(assPath, buildAssTrack(words, req.preset, probe.width, probe.height), 'utf8');
+        await writeFile(assPath, buildAssTrack(words, req.preset, req.position, probe.width, probe.height), 'utf8');
 
-        // Pass 2 — burn in. Relative filename + cwd keep Windows drive colons out of the filter graph.
+        // Relative filename + cwd keep Windows drive colons out of the filter graph.
         await track(
           runFfmpeg(
             [

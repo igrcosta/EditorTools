@@ -103,8 +103,24 @@ export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
 // Captions
 // ---------------------------------------------------------------------------
 
-export const CAPTION_PRESETS = ['clean', 'karaoke', 'lowerthird', 'boxed'] as const;
+/** Visual style only — where the captions sit on screen is a separate, independent choice (CAPTION_POSITIONS). */
+export const CAPTION_PRESETS = ['clean', 'karaoke', 'boxed', 'minimal', 'bold', 'outline'] as const;
 export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
+
+/** 3x3 safe-zone grid, so vertical (9:16) captions can dodge a platform's own UI chrome. */
+export const CAPTION_POSITIONS = [
+  'top-left', 'top-center', 'top-right',
+  'middle-left', 'middle-center', 'middle-right',
+  'bottom-left', 'bottom-center', 'bottom-right',
+] as const;
+export type CaptionPosition = (typeof CAPTION_POSITIONS)[number];
+
+/** One transcribed (or user-edited) word with its own timing, in seconds. */
+export interface CaptionWord {
+  text: string;
+  start: number;
+  end: number;
+}
 
 /** Extra result info some tools report (e.g. silence cutting stats). */
 export interface JobMeta {
@@ -118,6 +134,8 @@ export interface JobMeta {
   faceCoverage?: number;
   /** Captions: number of words transcribed (lets the UI flag a suspiciously short result). */
   captionWordCount?: number;
+  /** Captions: whisper's own language guess (e.g. "pt"), shown as a confirmation. */
+  captionLanguage?: string;
 }
 
 /** Which optional tools this server instance can run (desktop ships the models; the web deploy does not). */

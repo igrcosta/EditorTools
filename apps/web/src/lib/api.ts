@@ -55,6 +55,8 @@ export const api = {
   getJob: (id: string) => request<JobState>(`/api/jobs/${id}`),
   cancelJob: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),
   jobFileUrl: (id: string) => `/api/jobs/${id}/file`,
+  /** Fetches a finished job's file and parses it as JSON (e.g. captions' transcribed word list). */
+  jobResult: <T>(id: string) => request<T>(`/api/jobs/${id}/file`),
   /** Same file served inline (no attachment disposition) for in-app preview players. */
   jobPreviewUrl: (id: string) => `/api/jobs/${id}/file?inline=1`,
   /** Present only inside the desktop app; null in the browser. */

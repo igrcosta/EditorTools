@@ -1,14 +1,16 @@
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { CaptionWord } from '@editools/shared';
 import { config } from '../config';
 import { killProcess, type ProcessHandle } from './ffmpeg';
 
-export interface TranscriptWord {
-  text: string;
-  /** Seconds. */
-  start: number;
-  end: number;
+export type TranscriptWord = CaptionWord;
+
+export interface TranscriptResult {
+  words: TranscriptWord[];
+  /** whisper's own language guess (e.g. "pt"), when it reported one. */
+  language?: string;
 }
 
 /**
@@ -47,7 +49,7 @@ export function transcribe(wavPath: string, modelPath: string, tempDir: string):
 }
 
 /** Reads back the JSON file `transcribe()` wrote into `tempDir`. */
-export async function readTranscript(tempDir: string): Promise<TranscriptWord[]> {
+export async function readTranscript(tempDir: string): Promise<TranscriptResult> {
   const raw = await readFile(path.join(tempDir, 'transcript.json'), 'utf8');
   return parseWhisperOutput(JSON.parse(raw));
 }
@@ -57,8 +59,11 @@ export async function readTranscript(tempDir: string): Promise<TranscriptWord[]>
  * `transcription[]` entry is already exactly one word (verified against a
  * real b5130 build) — offsets are milliseconds, text carries a leading space.
  */
-export function parseWhisperOutput(json: unknown): TranscriptWord[] {
-  const root = json as { transcription?: Array<{ text?: string; offsets?: { from?: number; to?: number } }> };
+export function parseWhisperOutput(json: unknown): TranscriptResult {
+  const root = json as {
+    transcription?: Array<{ text?: string; offsets?: { from?: number; to?: number } }>;
+    result?: { language?: string };
+  };
   const entries = Array.isArray(root.transcription) ? root.transcription : [];
   const words: TranscriptWord[] = [];
   for (const entry of entries) {
@@ -68,5 +73,5 @@ export function parseWhisperOutput(json: unknown): TranscriptWord[] {
     const to = entry.offsets?.to ?? from;
     words.push({ text, start: from / 1000, end: Math.max(to, from + 1) / 1000 });
   }
-  return words;
+  return { words, language: root.result?.language };
 }

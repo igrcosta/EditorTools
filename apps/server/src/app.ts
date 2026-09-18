@@ -44,7 +44,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, { origin: [...config.corsOrigins] });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await app.register(multipart, {
-    limits: { fileSize: config.maxUploadBytes, files: 1, fields: 10 },
+    // fieldSize above busboy's 1MB default: captions' edited word-timing list
+    // is plain-text JSON but can run long for longer videos.
+    limits: { fileSize: config.maxUploadBytes, files: 1, fields: 10, fieldSize: 8 * 1024 * 1024 },
   });
 
   app.get('/api/health', async () => ({ status: 'ok' }));
