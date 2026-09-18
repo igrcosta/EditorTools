@@ -81,7 +81,13 @@ export function UpscalePage({ embedded = false }: { embedded?: boolean }) {
         <>
           {!file && (
             <>
-              <Dropzone label={t('upscale.dropLabel')} hint={t('upscale.dropHint')} accept={ACCEPT} onFile={onFile} />
+              <Dropzone
+                label={t('upscale.dropLabel')}
+                hint={t('upscale.dropHint')}
+                pasteHint={t('pasteHint')}
+                accept={ACCEPT}
+                onFile={onFile}
+              />
               <p className="text-xs text-zinc-500">{t('upscale.gpuHint')}</p>
             </>
           )}

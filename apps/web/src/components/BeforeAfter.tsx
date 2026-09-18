@@ -59,7 +59,7 @@ export function BeforeAfter({ before, after, transparent = false, zoomable = fal
             className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
             style={{ left: `calc(${position}% - 1px)` }}
           >
-            <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold text-zinc-900 shadow">
+            <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-semibold text-zinc-900 shadow">
               ⇔
             </div>
           </div>

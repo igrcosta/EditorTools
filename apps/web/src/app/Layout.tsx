@@ -17,7 +17,7 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <header className="z-20 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-8 px-4">
-          <Link to="/" className="text-sm font-bold tracking-[0.2em] text-zinc-100">
+          <Link to="/" className="text-sm font-semibold tracking-[0.2em] text-zinc-100">
             {t('appName')}
           </Link>
           <nav className="flex items-center gap-1 sm:gap-2">

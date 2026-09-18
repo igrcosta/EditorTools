@@ -49,6 +49,7 @@
     "gpuHint": "Uses your GPU (Vulkan). A slow or integrated GPU can take a minute or two."
   },
   "changeFile": "Change file",
+  "pasteHint": "or paste an image from your clipboard (Ctrl+V)",
   "compare": {
     "before": "Before",
     "after": "After",

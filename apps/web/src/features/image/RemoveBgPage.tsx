@@ -58,7 +58,13 @@ export function RemoveBgPage({ embedded = false }: { embedded?: boolean }) {
         <>
           {!file && (
             <>
-              <Dropzone label={t('removeBg.dropLabel')} hint={t('removeBg.dropHint')} accept={ACCEPT} onFile={onFile} />
+              <Dropzone
+                label={t('removeBg.dropLabel')}
+                hint={t('removeBg.dropHint')}
+                pasteHint={t('pasteHint')}
+                accept={ACCEPT}
+                onFile={onFile}
+              />
               <p className="text-xs text-zinc-500">{t('removeBg.hint')}</p>
             </>
           )}

@@ -22,7 +22,7 @@ export function HomePage() {
         <p className="text-xs font-medium uppercase tracking-[0.4em] text-accent/80">
           {t('appName')}
         </p>
-        <h1 className="mt-5 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-4xl font-semibold text-transparent sm:text-6xl">
+        <h1 className="mt-5 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-4xl font-semibold tracking-[-0.022em] text-transparent sm:text-6xl">
           {t('tagline')}
         </h1>
         <p className="mt-4 text-base text-zinc-400">{t('subtitle')}</p>
