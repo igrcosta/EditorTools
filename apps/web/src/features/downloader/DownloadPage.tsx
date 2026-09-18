@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { Input } from '../../components/Input';
+import { PageHeader } from '../../components/PageHeader';
 import { ProgressBar } from '../../components/ProgressBar';
 import { Spinner } from '../../components/Spinner';
 import { api, type DesktopSettings } from '../../lib/api';
@@ -94,11 +95,12 @@ export function DownloadPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
-        <p className="mt-1 text-xs text-zinc-500">{t('platformsHint')}</p>
-      </div>
+      <PageHeader
+        eyebrow={t('common:nav.downloader')}
+        title={t('title')}
+        description={t('description')}
+        hint={t('platformsHint')}
+      />
 
       <form onSubmit={onAnalyze} className="flex gap-2">
         <Input
@@ -129,7 +131,7 @@ export function DownloadPage() {
       )}
 
       {dl.analysis && (
-        <Card className="space-y-4">
+        <Card className="space-y-4 divide-y divide-zinc-800/70">
           <div className="flex gap-4">
             {dl.analysis.thumbnailUrl && (
               <img

@@ -14,6 +14,7 @@ import { DesktopOnlyNotice } from '../../components/DesktopOnlyNotice';
 import { Dropzone } from '../../components/Dropzone';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { JobStatus } from '../../components/JobStatus';
+import { PageHeader } from '../../components/PageHeader';
 import { Pills } from '../../components/Pills';
 import { Spinner } from '../../components/Spinner';
 import { formatBytes } from '../../lib/format';
@@ -61,10 +62,7 @@ export function FaceTrackPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
-      </div>
+      <PageHeader eyebrow={t('common:nav.video')} title={t('title')} description={t('description')} />
 
       {features && !features.faceTracking ? (
         <DesktopOnlyNotice />
@@ -84,7 +82,7 @@ export function FaceTrackPage() {
           )}
 
           {file && (
-            <Card className="space-y-4">
+            <Card className="space-y-4 divide-y divide-zinc-800/70">
               <div className="flex items-center justify-between gap-4">
                 <p className="min-w-0 truncate text-sm text-zinc-300">
                   {file.name} <span className="text-zinc-500">· {formatBytes(file.size)}</span>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { AudioFixPage } from '../audiofix/AudioFixPage';
 import { SilenceCutPage } from '../silencecut/SilenceCutPage';
 
@@ -12,18 +13,15 @@ export function AudioPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">{t('audioHub.title')}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{t('audioHub.description')}</p>
-      </div>
+      <PageHeader eyebrow={t('nav.audio')} title={t('audioHub.title')} description={t('audioHub.description')} />
 
-      <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+      <div className="flex gap-1 rounded-full border border-zinc-800 bg-zinc-900 p-1">
         {(['silence', 'fix'] as const).map((key) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`flex-1 cursor-pointer rounded-md px-3 py-2 text-sm transition-colors ${
+            className={`flex-1 cursor-pointer rounded-full px-3 py-2 text-sm transition-colors ${
               tab === key
                 ? 'bg-accent/15 font-medium text-accent'
                 : 'text-zinc-400 hover:text-zinc-200'

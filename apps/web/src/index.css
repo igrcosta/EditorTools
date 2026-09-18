@@ -9,9 +9,9 @@
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Precision-instrument type: weights stay in a 400-590 band, never bold. */
+  /* Editorial type: body/labels stay light (510), headings peak at 600 — never bold. */
   --font-weight-medium: 510;
-  --font-weight-semibold: 590;
+  --font-weight-semibold: 600;
 
   /* Cards/panels read as 12px-radius surfaces; buttons, inputs and pills already match at md/full. */
   --radius-lg: 0.75rem;
@@ -31,7 +31,7 @@ body {
 }
 
 h1 {
-  letter-spacing: -0.011em;
+  letter-spacing: -0.015em;
 }
 
 @keyframes indeterminate-slide {

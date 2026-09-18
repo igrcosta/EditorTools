@@ -8,6 +8,7 @@ import { Card } from '../../components/Card';
 import { Dropzone } from '../../components/Dropzone';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { JobStatus } from '../../components/JobStatus';
+import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { formatBytes, formatDuration } from '../../lib/format';
 import { useJobRunner } from '../../lib/useJobRunner';
@@ -179,10 +180,7 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className="mx-auto max-w-xl space-y-5">
       {!embedded && (
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100">{t('title')}</h1>
-          <p className="mt-1 text-sm text-zinc-400">{t('description')}</p>
-        </div>
+        <PageHeader eyebrow={t('common:nav.audio')} title={t('title')} description={t('description')} />
       )}
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="audio/*,video/*" onFile={onFile} />}
@@ -192,7 +190,7 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {file && (
-        <Card className="space-y-4">
+        <Card className="space-y-4 divide-y divide-zinc-800/70">
           <div className="flex items-center justify-between gap-4">
             <p className="min-w-0 truncate text-sm text-zinc-300">
               {file.name} <span className="text-zinc-500">· {formatBytes(file.size)}</span>

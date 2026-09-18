@@ -18,16 +18,14 @@ export function HomePage() {
       {/* Vignette so the field never competes with the copy. */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.75)_100%)]" />
 
-      <div className="relative z-10 flex flex-col items-center px-4 py-16 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.4em] text-accent/80">
-          {t('appName')}
-        </p>
-        <h1 className="mt-5 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-4xl font-semibold tracking-[-0.022em] text-transparent sm:text-6xl">
+      <div className="relative z-10 flex flex-col items-center px-4 py-20 text-center">
+        <p className="font-mono text-xs text-accent/80">{`{ ${t('appName')} }`}</p>
+        <h1 className="mt-6 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-5xl leading-[0.95] font-semibold tracking-[-0.03em] text-transparent sm:text-7xl">
           {t('tagline')}
         </h1>
-        <p className="mt-4 text-base text-zinc-400">{t('subtitle')}</p>
+        <p className="mt-5 text-base text-zinc-400">{t('subtitle')}</p>
 
-        <div className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-16 grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {CTAS.map(({ to, key }) => (
             <Link
               key={to}

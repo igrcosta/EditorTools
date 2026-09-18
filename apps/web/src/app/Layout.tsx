@@ -26,7 +26,7 @@ export function Layout() {
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  `rounded-full px-3 py-1.5 text-sm transition-colors ${
                     isActive
                       ? 'bg-accent/10 text-accent'
                       : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'
