@@ -14,6 +14,7 @@ const PATTERNS: Array<[RegExp, ErrorCode]> = [
   // Markers thrown by the image / tracking tasks.
   [/EDITOOLS_IMAGE_TOO_LARGE/, 'image_too_large'],
   [/EDITOOLS_NO_FACE_FOUND/, 'no_face_found'],
+  [/EDITOOLS_NO_SPEECH_DETECTED/, 'no_speech_detected'],
   [/EDITOOLS_INVALID_FILE/, 'invalid_file'],
   [/EDITOOLS_TOO_LONG/, 'too_long'],
 ];
@@ -47,6 +48,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   image_too_large: 'This image has too many pixels to process.',
   gpu_required: 'Upscaling needs a Vulkan-capable GPU and up-to-date graphics drivers.',
   no_face_found: "We couldn't find a face in this video.",
+  no_speech_detected: "We couldn't find any speech in this video.",
   feature_unavailable: 'This tool is only available in the Editools desktop app.',
 };
 

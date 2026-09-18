@@ -71,4 +71,15 @@ export const config = {
   maxImagePixels: Number(process.env.MAX_IMAGE_PIXELS ?? 50_000_000),
   /** Face tracking analyses every frame; cap the clip length. */
   maxTrackingSeconds: Number(process.env.MAX_TRACKING_SECONDS ?? 600),
+
+  // --- Captions. Desktop-only: CPU transcription is slow and the web deploy
+  // is resource-constrained, so it gets its own switch (not imageToolsEnabled
+  // — whisper.cpp needs no GPU, a different profile than the image/onnx tools). ---
+
+  /** Master switch; availability additionally requires the whisper binary/model to exist. */
+  captionsEnabled: process.env.CAPTIONS_TOOL !== 'false',
+  /** whisper.cpp CLI executable (whisper-cli). */
+  whisperPath: process.env.WHISPER_PATH ?? (vendorDir ? path.join(vendorDir, 'whisper', exe('whisper-cli')) : null),
+  /** Transcription is CPU-bound and roughly real-time or slower; cap the clip length. */
+  maxCaptionSeconds: Number(process.env.MAX_CAPTION_SECONDS ?? 1800),
 } as const;

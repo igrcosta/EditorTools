@@ -1,13 +1,23 @@
 import { rm } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { TRACK_ASPECTS, TRACK_SMOOTHING, TRACK_ZOOMS, type DownloadStarted } from '@editools/shared';
+import {
+  CAPTION_PRESETS,
+  TRACK_ASPECTS,
+  TRACK_SMOOTHING,
+  TRACK_ZOOMS,
+  type DownloadStarted,
+} from '@editools/shared';
 import { config } from '../config';
 import { apiError } from '../media/errors';
 import { getFeatures } from '../media/features';
 import { createJob, createTempDir } from '../media/jobs';
-import { faceTrackTask } from '../media/tasks';
+import { captionsTask, faceTrackTask } from '../media/tasks';
 import { receiveUpload, titleFrom, UploadTooLargeError } from './upload';
+
+const captionsSchema = z.object({
+  preset: z.enum(CAPTION_PRESETS).default('clean'),
+});
 
 const faceTrackSchema = z
   .object({
@@ -40,6 +50,40 @@ export function registerVideoRoutes(app: FastifyInstance): void {
           zoom: Number(zoom),
           smoothing,
           title: `${titleFrom(upload.originalName)} (face tracked)`,
+        }),
+        tempDir,
+      );
+      if (job === 'busy') {
+        await rm(tempDir, { recursive: true, force: true });
+        return reply.code(429).send(apiError('busy'));
+      }
+      const started: DownloadStarted = { jobId: job.id };
+      return reply.code(202).send(started);
+    } catch (err) {
+      await rm(tempDir, { recursive: true, force: true });
+      if (err instanceof UploadTooLargeError) return reply.code(413).send(apiError('too_large'));
+      throw err;
+    }
+  });
+
+  app.post('/api/video/captions', { bodyLimit: config.maxUploadBytes }, async (request, reply) => {
+    if (!(await getFeatures()).captions) return reply.code(503).send(apiError('feature_unavailable'));
+    if (!request.isMultipart()) return reply.code(400).send(apiError('invalid_file'));
+
+    const tempDir = await createTempDir();
+    try {
+      const upload = await receiveUpload(request, tempDir);
+      const parsed = upload ? captionsSchema.safeParse(upload.fields) : null;
+      if (!upload || !parsed?.success) {
+        await rm(tempDir, { recursive: true, force: true });
+        return reply.code(400).send(apiError('invalid_file'));
+      }
+
+      const job = await createJob(
+        captionsTask({
+          inputPath: upload.inputPath,
+          preset: parsed.data.preset,
+          title: `${titleFrom(upload.originalName)} (captioned)`,
         }),
         tempDir,
       );

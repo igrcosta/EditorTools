@@ -11,5 +11,7 @@ Binaries and models fetched into `vendor/` by `scripts/fetch-vendor.mjs` and shi
 | YuNet 2023mar (`face_detection_yunet_2023mar.onnx`) | Face detection for Face Tracking | MIT | https://github.com/opencv/opencv_zoo |
 | Real-ESRGAN ncnn-vulkan (`realesrgan-ncnn-vulkan`) | Image upscaling engine | MIT | https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan |
 | Real-ESRGAN models (`realesrgan-x4plus`, `realesrgan-x4plus-anime`, `realesr-animevideov3`) | Image upscaling weights | BSD-3-Clause | https://github.com/xinntao/Real-ESRGAN |
+| whisper.cpp (`whisper-cli`) | Speech-to-text engine for Automatic Captions | MIT | https://github.com/ggml-org/whisper.cpp |
+| Whisper "base" weights (`ggml-base.bin`, GGML conversion of OpenAI's Whisper) | Automatic Captions transcription | MIT | https://huggingface.co/ggerganov/whisper.cpp |
 
 Not used on purpose (licensing): BRIA RMBG-1.4/2.0 (non-commercial), `@imgly/background-removal` (AGPL-3.0), `upscayl-ncnn` (AGPL-3.0).

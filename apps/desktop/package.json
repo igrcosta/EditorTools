@@ -37,6 +37,10 @@
         "to": "bin/realesrgan"
       },
       {
+        "from": "../../vendor/whisper",
+        "to": "bin/whisper"
+      },
+      {
         "from": "../../vendor/models",
         "to": "models"
       },

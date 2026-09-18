@@ -7,6 +7,7 @@ import { canLoadOnnxRuntime } from './onnx';
 export const MODEL_FILES = {
   isnet: 'isnet-general-use.onnx',
   yunet: 'face_detection_yunet_2023mar.onnx',
+  whisperBase: 'ggml-base.bin',
 } as const;
 
 export function modelPath(name: keyof typeof MODEL_FILES): string | null {
@@ -15,15 +16,22 @@ export function modelPath(name: keyof typeof MODEL_FILES): string | null {
   return existsSync(file) ? file : null;
 }
 
-/** Runtime availability: master switch + files on disk + loadable ONNX runtime. */
+/** Runtime availability: master switch(es) + files on disk + (for onnx tools) a loadable runtime. */
 export async function getFeatures(): Promise<FeaturesResponse> {
+  const captions =
+    config.captionsEnabled &&
+    config.whisperPath !== null &&
+    existsSync(config.whisperPath) &&
+    modelPath('whisperBase') !== null;
+
   if (!config.imageToolsEnabled) {
-    return { removeBackground: false, upscale: false, faceTracking: false };
+    return { removeBackground: false, upscale: false, faceTracking: false, captions };
   }
   const ort = await canLoadOnnxRuntime();
   return {
     removeBackground: ort && modelPath('isnet') !== null,
     faceTracking: ort && modelPath('yunet') !== null,
     upscale: config.realesrganPath !== null && existsSync(config.realesrganPath),
+    captions,
   };
 }

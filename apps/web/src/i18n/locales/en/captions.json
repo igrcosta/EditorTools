@@ -1,0 +1,19 @@
+{
+  "title": "Automatic Captions",
+  "description": "Drop a video — the speech becomes styled, burned-in captions.",
+  "dropLabel": "Drop a video here or click to browse",
+  "dropHint": "MP4, MOV or WebM",
+  "changeFile": "Change file",
+  "presetTitle": "Caption style",
+  "preset": {
+    "clean": "Clean",
+    "karaoke": "Karaoke highlight",
+    "lowerthird": "Lower third",
+    "boxed": "Boxed"
+  },
+  "process": "Add captions",
+  "processAgain": "Try another style",
+  "uploading": "Reading video…",
+  "fewWordsWarning": "Very little speech was found — check the video has clear audio.",
+  "hint": "Runs on your computer. Transcribes automatically — not a perfect transcript, but a fast starting point."
+}

@@ -54,9 +54,10 @@ function configureEnvironment(): void {
     process.env.YTDLP_PATH = path.join(res, 'bin', exe('yt-dlp'));
     process.env.FFMPEG_PATH = path.join(res, 'bin', exe('ffmpeg'));
     process.env.WEB_DIST = path.join(res, 'web');
-    // AI tools: models + Real-ESRGAN ship as extraResources (see package.json "build").
+    // AI tools: models + Real-ESRGAN + whisper.cpp ship as extraResources (see package.json "build").
     process.env.MODELS_DIR = path.join(res, 'models');
     process.env.REALESRGAN_PATH = path.join(res, 'bin', 'realesrgan', exe('realesrgan-ncnn-vulkan'));
+    process.env.WHISPER_PATH = path.join(res, 'bin', 'whisper', exe('whisper-cli'));
   } else {
     // dist/main.cjs → apps/desktop → repo root
     const repoRoot = path.join(__dirname, '..', '..', '..');
@@ -65,6 +66,7 @@ function configureEnvironment(): void {
     process.env.WEB_DIST = path.join(repoRoot, 'apps', 'web', 'dist');
     process.env.MODELS_DIR = path.join(repoRoot, 'vendor', 'models');
     process.env.REALESRGAN_PATH = path.join(repoRoot, 'vendor', 'realesrgan', exe('realesrgan-ncnn-vulkan'));
+    process.env.WHISPER_PATH = path.join(repoRoot, 'vendor', 'whisper', exe('whisper-cli'));
   }
   process.env.HOST = '127.0.0.1';
   process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? 'warn';

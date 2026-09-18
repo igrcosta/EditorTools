@@ -6,6 +6,7 @@ import { ConvertPage } from '../features/converter/ConvertPage';
 import { AudioPage } from '../features/audio/AudioPage';
 import { ImagePage } from '../features/image/ImagePage';
 import { FaceTrackPage } from '../features/facetrack/FaceTrackPage';
+import { CaptionsPage } from '../features/captions/CaptionsPage';
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
         <Route path="/audio" element={<AudioPage />} />
         <Route path="/image" element={<ImagePage />} />
         <Route path="/video" element={<FaceTrackPage />} />
+        <Route path="/captions" element={<CaptionsPage />} />
         {/* Old per-tool routes now live inside the audio hub. */}
         <Route path="/audio-fix" element={<Navigate to="/audio" replace />} />
         <Route path="/cut-silence" element={<Navigate to="/audio" replace />} />

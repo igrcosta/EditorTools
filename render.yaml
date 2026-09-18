@@ -15,3 +15,6 @@ services:
       # Image tools + face tracking need the desktop app (GPU / memory).
       - key: IMAGE_TOOLS
         value: 'false'
+      # Automatic Captions (whisper.cpp) needs the desktop app (CPU/memory headroom the free tier lacks).
+      - key: CAPTIONS_TOOL
+        value: 'false'

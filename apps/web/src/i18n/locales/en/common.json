@@ -8,7 +8,8 @@
     "audio": "Audio",
     "convert": "Convert",
     "image": "Image",
-    "video": "Face Tracking"
+    "video": "Face Tracking",
+    "captions": "Captions"
   },
   "home": {
     "downloader": {
@@ -30,6 +31,10 @@
     "video": {
       "title": "Face Tracking",
       "description": "Reframe a video to follow the face"
+    },
+    "captions": {
+      "title": "Automatic Captions",
+      "description": "Transcribe and burn in styled captions"
     }
   },
   "audioHub": {

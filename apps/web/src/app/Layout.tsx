@@ -7,6 +7,7 @@ const NAV = [
   { to: '/convert', key: 'convert' },
   { to: '/image', key: 'image' },
   { to: '/video', key: 'video' },
+  { to: '/captions', key: 'captions' },
 ] as const;
 
 export function Layout() {

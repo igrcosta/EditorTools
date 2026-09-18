@@ -8,6 +8,7 @@ const CTAS = [
   { to: '/convert', key: 'convert' },
   { to: '/image', key: 'image' },
   { to: '/video', key: 'video' },
+  { to: '/captions', key: 'captions' },
 ] as const;
 
 export function HomePage() {
@@ -25,7 +26,7 @@ export function HomePage() {
         </h1>
         <p className="mt-5 text-base text-zinc-400">{t('subtitle')}</p>
 
-        <div className="mt-16 grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-16 grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {CTAS.map(({ to, key }) => (
             <Link
               key={to}

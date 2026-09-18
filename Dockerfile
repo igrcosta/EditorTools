@@ -13,9 +13,9 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 COPY scripts ./scripts
-# Also downloads the yt-dlp and ffmpeg binaries (postinstall). The AI models
-# and Real-ESRGAN are desktop-only (no GPU / not enough memory here), so their
-# fetch is skipped and the tools are switched off below.
+# Also downloads the yt-dlp and ffmpeg binaries (postinstall). The AI models,
+# Real-ESRGAN and whisper.cpp are desktop-only (no GPU / not enough memory
+# here), so their fetch is skipped and the tools are switched off below.
 ENV SKIP_VENDOR_FETCH=1
 RUN npm ci
 
@@ -28,7 +28,8 @@ ENV NODE_ENV=production \
     TRUST_PROXY=1 \
     WEB_DIST=/app/apps/web/dist \
     MAX_FILESIZE=2G \
-    IMAGE_TOOLS=false
+    IMAGE_TOOLS=false \
+    CAPTIONS_TOOL=false
 
 EXPOSE 3001
 

@@ -7,13 +7,14 @@ import audiofix from './locales/en/audiofix.json';
 import silencecut from './locales/en/silencecut.json';
 import image from './locales/en/image.json';
 import facetrack from './locales/en/facetrack.json';
+import captions from './locales/en/captions.json';
 
 void i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
   resources: {
-    en: { common, downloader, converter, audiofix, silencecut, image, facetrack },
+    en: { common, downloader, converter, audiofix, silencecut, image, facetrack, captions },
   },
   interpolation: { escapeValue: false },
 });

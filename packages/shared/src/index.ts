@@ -99,6 +99,13 @@ export type TrackZoom = (typeof TRACK_ZOOMS)[number];
 export const TRACK_SMOOTHING = ['low', 'medium', 'high'] as const;
 export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
 
+// ---------------------------------------------------------------------------
+// Captions
+// ---------------------------------------------------------------------------
+
+export const CAPTION_PRESETS = ['clean', 'karaoke', 'lowerthird', 'boxed'] as const;
+export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
+
 /** Extra result info some tools report (e.g. silence cutting stats). */
 export interface JobMeta {
   silencesCut?: number;
@@ -109,6 +116,8 @@ export interface JobMeta {
   outputHeight?: number;
   /** Face tracking: fraction (0–1) of sampled frames where a face was found. */
   faceCoverage?: number;
+  /** Captions: number of words transcribed (lets the UI flag a suspiciously short result). */
+  captionWordCount?: number;
 }
 
 /** Which optional tools this server instance can run (desktop ships the models; the web deploy does not). */
@@ -116,6 +125,7 @@ export interface FeaturesResponse {
   removeBackground: boolean;
   upscale: boolean;
   faceTracking: boolean;
+  captions: boolean;
 }
 
 export const ERROR_CODES = [
@@ -138,6 +148,7 @@ export const ERROR_CODES = [
   'image_too_large',
   'gpu_required',
   'no_face_found',
+  'no_speech_detected',
   'feature_unavailable',
 ] as const;
 

@@ -1,12 +1,12 @@
 # Editools — Development Guide
 
-Toolbox web app for video editors. Full product spec lives in `Editools_Product_Development_Specification.md` (kept by the founder, not in this repo). Built: foundation, Media Downloader (yt-dlp, multi-platform), Converter/Audio Extractor, Audio hub (Cut Silence & Trim, Fix Audio), Image hub (Remove Background, Upscale with before/after slider), Face Tracking (reframes a video to follow the face) — all ship in the desktop app. Processing runs on the embedded native ffmpeg via the shared task/job layer (`media/tasks.ts` + `media/jobs.ts`), not ffmpeg.wasm; a future cloud-web version would need wasm or uploads.
+Toolbox web app for video editors. Full product spec lives in `Editools_Product_Development_Specification.md` (kept by the founder, not in this repo). Built: foundation, Media Downloader (yt-dlp, multi-platform), Converter/Audio Extractor, Audio hub (Cut Silence & Trim, Fix Audio), Image hub (Remove Background, Upscale with before/after slider), Face Tracking (reframes a video to follow the face), Automatic Captions (local speech-to-text, styled burned-in presets) — all ship in the desktop app. Processing runs on the embedded native ffmpeg via the shared task/job layer (`media/tasks.ts` + `media/jobs.ts`), not ffmpeg.wasm; a future cloud-web version would need wasm or uploads.
 
-The AI tools (Remove Background, Upscale, Face Tracking) are **desktop-only**: they need the models in `vendor/` plus, for upscaling, a Vulkan GPU. The server reports what it can run at `GET /api/features`; the web app shows "Desktop only" otherwise, and the Docker/Render deploy sets `IMAGE_TOOLS=false`.
+The AI tools (Remove Background, Upscale, Face Tracking, Automatic Captions) are **desktop-only**: they need the models/binaries in `vendor/`, and Upscale additionally needs a Vulkan GPU (Captions runs on CPU via whisper.cpp). The server reports what it can run at `GET /api/features`; the web app shows "Desktop only" otherwise, and the Docker/Render deploy sets `IMAGE_TOOLS=false` and `CAPTIONS_TOOL=false`.
 
 ## Commands
 
-- `npm install` — installs everything, including yt-dlp and ffmpeg binaries (via `youtube-dl-exec` / `ffmpeg-static` postinstall) and the AI models + Real-ESRGAN binary into `vendor/` (`scripts/fetch-vendor.mjs`, pinned URLs + SHA-256; `SKIP_VENDOR_FETCH=1` skips it, offline failures only warn).
+- `npm install` — installs everything, including yt-dlp and ffmpeg binaries (via `youtube-dl-exec` / `ffmpeg-static` postinstall) and the AI models + Real-ESRGAN binary + whisper.cpp binary into `vendor/` (`scripts/fetch-vendor.mjs`, pinned URLs + SHA-256; `SKIP_VENDOR_FETCH=1` skips it, offline failures only warn).
 - `npm run dev` — runs web (Vite, :5173) and server (Fastify, 127.0.0.1:3001) together. Vite proxies `/api` to the server.
 - `npm run typecheck` — TypeScript check across all workspaces.
 - `npm run build` — builds the web app.
@@ -14,7 +14,7 @@ The AI tools (Remove Background, Upscale, Face Tracking) are **desktop-only**: t
 ## Architecture
 
 - `packages/shared/src/index.ts` — API contracts (`AnalyzeResult`, `DownloadRequest`, `JobState`, formats, error codes). Both apps import `@editools/shared`. Change contracts here first.
-- `apps/server/src/media/` — the shared processing layer (spec §25). `jobs.ts` owns the queue, job state, temp dirs, transparent retries and TTL cleanup; work units are `JobTask`s built in `tasks.ts` (download, convert with remux→transcode fallback, audio fix, cut silence, remove background, upscale, face track); `ytdlp.ts` wraps yt-dlp, `ffmpeg.ts` wraps ffmpeg (monotonic progress, raw-frame streaming, `probeMedia`), `realesrgan.ts` wraps the Real-ESRGAN ncnn-vulkan binary, `onnx.ts` lazily loads `onnxruntime-node` sessions (ISNet in `background.ts`, YuNet + crop-track math in `facetrack.ts`), `features.ts` says which of these are available, `errors.ts` maps technical errors to codes (tasks throw `EDITOOLS_*` markers for specific codes). New tools = new task in `tasks.ts` + thin route, never a parallel system. Multi-step tasks use the `pipelineTask` helper so cancel reaches the current child process.
+- `apps/server/src/media/` — the shared processing layer (spec §25). `jobs.ts` owns the queue, job state, temp dirs, transparent retries and TTL cleanup; work units are `JobTask`s built in `tasks.ts` (download, convert with remux→transcode fallback, audio fix, cut silence, remove background, upscale, face track, captions); `ytdlp.ts` wraps yt-dlp, `ffmpeg.ts` wraps ffmpeg (monotonic progress, raw-frame streaming, `probeMedia`), `realesrgan.ts` wraps the Real-ESRGAN ncnn-vulkan binary, `whisper.ts` wraps the whisper.cpp CLI (word-level transcription), `captions.ts` turns a transcript into a styled `.ass` track (fixed presets, no user-customizable styling), `onnx.ts` lazily loads `onnxruntime-node` sessions (ISNet in `background.ts`, YuNet + crop-track math in `facetrack.ts`), `features.ts` says which of these are available, `errors.ts` maps technical errors to codes (tasks throw `EDITOOLS_*` markers for specific codes). New tools = new task in `tasks.ts` + thin route, never a parallel system. Multi-step tasks use the `pipelineTask` helper so cancel reaches the current child process.
 - Pixel work goes through ffmpeg (decode to rawvideo → model → `alphamerge`/`crop`+`sendcmd`), not an image library; `onnxruntime-node` is the only ML runtime and it is imported dynamically so the web deploy never loads it.
 - `apps/server/src/security/urlGuard.ts` — SSRF guard. Every user-provided URL MUST pass through `assertSafeUrl` before reaching yt-dlp.
 - `apps/web/src/features/<tool>/` — one folder per tool (page + hook). Design system primitives in `apps/web/src/components/`.
@@ -22,7 +22,7 @@ The AI tools (Remove Background, Upscale, Face Tracking) are **desktop-only**: t
 
 ## Development rules (from spec §50 — do not violate)
 
-1. Do not implement features outside the current phase without explicit approval. Out of scope now: accounts, subscriptions, transcription, cloud storage.
+1. Do not implement features outside the current phase without explicit approval. Out of scope now: accounts, subscriptions, cloud storage. (Local, on-device transcription for Automatic Captions is in scope — cloud-based transcription is not.)
 2. Working functionality over speculative abstraction.
 3. Create reusable architecture only where repetition is real.
 4. Every processing operation needs success, failure, loading, and cancel states.

@@ -30,7 +30,40 @@ const MODELS = [
     sha256: '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
     dest: 'models/face_detection_yunet_2023mar.onnx',
   },
+  {
+    // Whisper "base" multilingual weights, GGML format (OpenAI Whisper, MIT), for automatic captions.
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+    sha256: '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
+    dest: 'models/ggml-base.bin',
+  },
 ];
+
+/** whisper.cpp (MIT) CLI — nightly "b" build tag, which is where prebuilt binaries are published. */
+const WHISPER = {
+  win32: {
+    url: 'https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-x64.zip',
+    sha256: 'f9ec6c52a2e949b62ab51fa21d0d497958f9e41c3010c157c4e42932d5316f3c',
+    // Only the CLI + the DLLs it actually loads (ggml's CPU-feature dispatch keeps one per
+    // microarchitecture) — not llama.dll/SDL2.dll, which belong to the other demo binaries
+    // in the same archive. Zip entries are nested under "Release/"; stripped on extraction.
+    keepBare: new Set([
+      'whisper-cli.exe',
+      'whisper.dll',
+      'ggml.dll',
+      'ggml-base.dll',
+      'ggml-cpu-alderlake.dll',
+      'ggml-cpu-cannonlake.dll',
+      'ggml-cpu-cascadelake.dll',
+      'ggml-cpu-haswell.dll',
+      'ggml-cpu-icelake.dll',
+      'ggml-cpu-sandybridge.dll',
+      'ggml-cpu-skylakex.dll',
+      'ggml-cpu-sse42.dll',
+      'ggml-cpu-x64.dll',
+    ]),
+    marker: 'whisper-cli.exe',
+  },
+};
 
 /** realesrgan-ncnn-vulkan (MIT) + Real-ESRGAN models (BSD-3), upstream portable release. */
 const REALESRGAN = {
@@ -134,6 +167,43 @@ async function ensureRealesrgan() {
   console.log('✓ realesrgan');
 }
 
+async function ensureWhisper() {
+  const entry = WHISPER[process.platform];
+  if (!entry) {
+    console.log(`– whisper: no prebuilt binary for ${process.platform}; captions will be unavailable`);
+    return;
+  }
+  const dir = path.join(vendor, 'whisper');
+  const stamp = path.join(dir, '.sha256');
+  if (existsSync(path.join(dir, entry.marker)) && existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === entry.sha256) {
+    console.log('✓ whisper (cached)');
+    return;
+  }
+  const zipPath = path.join(vendor, 'whisper.zip');
+  if (!existsSync(zipPath) || sha256Of(zipPath) !== entry.sha256) {
+    console.log('↓ whisper-cli');
+    await download(entry.url, zipPath, 'whisper');
+    const actual = sha256Of(zipPath);
+    if (actual !== entry.sha256) {
+      rmSync(zipPath, { force: true });
+      throw new Error(`whisper: checksum mismatch (${actual})`);
+    }
+  }
+  const { default: AdmZip } = await import('adm-zip');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const zip = new AdmZip(zipPath);
+  for (const e of zip.getEntries()) {
+    const name = e.entryName.replace(/\\/g, '/');
+    const bare = name.startsWith('Release/') ? name.slice('Release/'.length) : name;
+    if (e.isDirectory || !entry.keepBare.has(bare) || bare.includes('..')) continue;
+    writeFileSync(path.join(dir, bare), e.getData());
+  }
+  writeFileSync(stamp, entry.sha256);
+  rmSync(zipPath, { force: true });
+  console.log('✓ whisper');
+}
+
 async function main() {
   if (process.env.SKIP_VENDOR_FETCH === '1') {
     console.log('fetch-vendor: skipped (SKIP_VENDOR_FETCH=1)');
@@ -142,6 +212,7 @@ async function main() {
   mkdirSync(vendor, { recursive: true });
   for (const model of MODELS) await ensureFile(model);
   await ensureRealesrgan();
+  await ensureWhisper();
 }
 
 main().catch((err) => {
