@@ -265,8 +265,8 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
                   disabled={busy}
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
                     mode === m
-                      ? 'border-accent text-accent'
-                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                      ? 'border-accent text-accent-text'
+                      : 'border-white/10 text-zinc-400 hover:border-white/25'
                   }`}
                 >
                   {t(`mode.${m}`)}
@@ -288,14 +288,14 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
                   disabled={busy}
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
                     !sample
-                      ? 'border-accent text-accent'
-                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                      ? 'border-accent text-accent-text'
+                      : 'border-white/10 text-zinc-400 hover:border-white/25'
                   }`}
                 >
                   {t('thresholdAuto')}
                 </button>
                 {sample && (
-                  <span className="inline-flex items-center gap-2 rounded-md border border-accent px-3 py-1.5 text-sm text-accent">
+                  <span className="inline-flex items-center gap-2 rounded-md border border-accent px-3 py-1.5 text-sm text-accent-text">
                     {t('thresholdSample', {
                       from: formatDuration(Math.floor(sample.start)),
                       to: formatDuration(Math.ceil(sample.end)),
@@ -305,7 +305,7 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
                       type="button"
                       onClick={() => setSample(null)}
                       disabled={busy}
-                      className="cursor-pointer text-accent/70 hover:text-accent"
+                      className="cursor-pointer text-accent-text/70 hover:text-accent-text"
                       aria-label={t('sampleClear')}
                     >
                       ✕

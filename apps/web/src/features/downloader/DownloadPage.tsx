@@ -164,8 +164,8 @@ export function DownloadPage() {
                   disabled={jobActive || dl.starting}
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
                     output === fmt
-                      ? 'border-accent text-accent'
-                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                      ? 'border-accent text-accent-text'
+                      : 'border-white/10 text-zinc-400 hover:border-white/25'
                   }`}
                 >
                   {t(`format.${fmt}`)}
@@ -188,8 +188,8 @@ export function DownloadPage() {
                     disabled={jobActive || dl.starting}
                     className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
                       height === q.height
-                        ? 'border-accent text-accent'
-                        : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                        ? 'border-accent text-accent-text'
+                        : 'border-white/10 text-zinc-400 hover:border-white/25'
                     }`}
                   >
                     {q.label}
@@ -228,7 +228,7 @@ export function DownloadPage() {
 
           {jobDone && (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-accent">✓ {t('savedAutomatically')}</p>
+              <p className="text-sm font-medium text-accent-text">✓ {t('savedAutomatically')}</p>
               <p className="text-sm text-zinc-300">
                 {job.filename}
                 {job.fileSizeBytes !== undefined && (
@@ -260,7 +260,7 @@ export function DownloadPage() {
           <button
             type="button"
             onClick={() => void chooseFolder()}
-            className="cursor-pointer text-accent hover:underline"
+            className="cursor-pointer text-accent-text hover:underline"
           >
             {t('changeFolder')}
           </button>

@@ -23,7 +23,7 @@ export function AudioPage() {
             onClick={() => setTab(key)}
             className={`flex-1 cursor-pointer rounded-full px-3 py-2 text-sm transition-colors ${
               tab === key
-                ? 'bg-accent/15 font-medium text-accent'
+                ? 'bg-accent/15 font-medium text-accent-text'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >

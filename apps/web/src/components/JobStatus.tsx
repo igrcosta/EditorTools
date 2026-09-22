@@ -63,7 +63,7 @@ export function JobStatus({ starting, job, onCancel, preview = false, previewNod
     const isImage = IMAGE_EXTS.includes(ext);
     return (
       <div className="space-y-3">
-        <p className="text-sm font-medium text-accent">
+        <p className="text-sm font-medium text-accent-text">
           ✓ {preview ? t('job.ready') : t('job.savedAutomatically')}
         </p>
         <p className="text-sm text-zinc-300">

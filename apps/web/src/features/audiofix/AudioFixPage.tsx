@@ -52,8 +52,8 @@ export function AudioFixPage({ embedded = false }: { embedded?: boolean }) {
           disabled={busy}
           className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
             value === opt
-              ? 'border-accent text-accent'
-              : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+              ? 'border-accent text-accent-text'
+              : 'border-white/10 text-zinc-400 hover:border-white/25'
           }`}
         >
           {t(`${labelKey}.${opt}`)}

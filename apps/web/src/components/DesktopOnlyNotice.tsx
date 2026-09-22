@@ -6,7 +6,7 @@ export function DesktopOnlyNotice() {
   const { t } = useTranslation();
   return (
     <Card className="space-y-2">
-      <p className="inline-flex rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+      <p className="inline-flex rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-text">
         {t('desktopOnly.badge')}
       </p>
       <p className="font-medium text-zinc-100">{t('desktopOnly.title')}</p>

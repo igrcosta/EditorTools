@@ -93,7 +93,7 @@ export function BeforeAfter({ before, after, transparent = false, zoomable = fal
                 type="button"
                 onClick={() => setActualSize(mode === 'actual')}
                 className={`cursor-pointer rounded px-2 py-0.5 transition-colors ${
-                  (mode === 'actual') === actualSize ? 'bg-accent/15 text-accent' : 'hover:text-zinc-300'
+                  (mode === 'actual') === actualSize ? 'bg-accent/15 text-accent-text' : 'hover:text-zinc-300'
                 }`}
               >
                 {t(`compare.${mode}`)}
