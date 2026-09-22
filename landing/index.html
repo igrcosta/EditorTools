@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Editools — a video editor's toolbox, on your desktop</title>
+<meta name="description" content="Download, convert, clean audio, remove backgrounds, upscale, auto-reframe and auto-caption — all local, all in one app. No uploads, no subscriptions to the cloud, no watching a progress bar on someone else's server." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          accent: '#9146ff',
+          'accent-strong': '#7a2df2',
+          'accent-text': '#b083ff',
+          surface: '#131519',
+        },
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      },
+    },
+  };
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+  body { background: #09090b; }
+
+  /* Before/after reframe demo — accessible range input drives a clip-path reveal. */
+  .reframe-demo { position: relative; aspect-ratio: 16 / 9; border-radius: 0.875rem; overflow: hidden; background: #000; }
+  .reframe-track { position: absolute; inset: 0; background: linear-gradient(135deg, #1c1024, #09090b 60%); }
+  .reframe-track.after-track { clip-path: inset(0 0 0 var(--split, 62%)); }
+  .reframe-frame { position: absolute; inset: 0; }
+  .reframe-crop { position: absolute; top: 8%; bottom: 8%; border: 2px solid rgba(255,255,255,0.55); border-radius: 0.5rem; box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); }
+  .before-crop { left: 4%; right: 58%; }
+  .after-crop { left: calc(38% + (62% - var(--split, 62%))); width: 22%; }
+  .subject { position: absolute; top: 50%; width: 68px; height: 68px; border-radius: 9999px; background: radial-gradient(circle at 35% 30%, #d9c4ff, #9146ff 65%, #5b1fbf); transform: translateY(-50%); box-shadow: 0 8px 24px -6px rgba(145,70,255,0.55); }
+  .subject.before { left: 18%; }
+  .subject.after { left: calc(38% + (62% - var(--split, 62%)) + 22% / 2 - 34px); }
+  .reframe-label { position: absolute; top: 0.75rem; padding: 0.25rem 0.6rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; border-radius: 0.375rem; background: rgba(9,9,11,0.7); color: #e4e4e7; border: 1px solid rgba(255,255,255,0.12); }
+  .reframe-divider { position: absolute; top: 0; bottom: 0; left: var(--split, 62%); width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.5); pointer-events: none; }
+  .reframe-handle { position: absolute; top: 50%; left: var(--split, 62%); width: 36px; height: 36px; border-radius: 9999px; background: #fff; color: #09090b; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); font-size: 0.9rem; pointer-events: none; box-shadow: 0 4px 12px -2px rgba(0,0,0,0.5); }
+  .reframe-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-200 antialiased font-sans" style="letter-spacing: -0.011em;">
+
+  <!-- Nav -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-zinc-950/85 backdrop-blur">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <a href="#" class="text-base font-semibold tracking-[0.14em] text-zinc-100">EDITOOLS</a>
+      <nav class="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
+        <a href="#features" class="transition-colors hover:text-zinc-100">Features</a>
+        <a href="#privacy" class="transition-colors hover:text-zinc-100">Why desktop</a>
+        <a href="#download" class="transition-colors hover:text-zinc-100">Download</a>
+      </nav>
+      <a href="#download" class="inline-flex h-10 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-accent-strong">
+        Download for Windows
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="mx-auto grid max-w-6xl items-center gap-14 px-6 pt-16 pb-20 lg:grid-cols-2 lg:pt-24">
+    <div>
+      <h1 class="text-4xl font-semibold leading-[1.08] tracking-[-0.02em] text-white sm:text-5xl">
+        Every tool an editor reaches for daily, without leaving your desktop.
+      </h1>
+      <p class="mt-5 max-w-lg text-lg text-zinc-400">
+        Download, convert, clean audio, remove backgrounds, upscale, auto-reframe for vertical, and auto-caption — processed locally on your machine. Nothing you edit ever leaves your computer.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-4">
+        <a href="#download" class="inline-flex h-12 items-center justify-center rounded-full bg-accent px-7 text-sm font-semibold text-zinc-950 transition-colors hover:bg-accent-strong">
+          Download for Windows — free
+        </a>
+        <a href="#features" class="inline-flex h-12 items-center justify-center rounded-full border border-white/10 px-7 text-sm text-zinc-200 transition-colors hover:border-accent/40">
+          See what's inside
+        </a>
+      </div>
+      <p class="mt-5 text-sm text-zinc-500">Windows 10/11, 64-bit. macOS support is being evaluated.</p>
+    </div>
+
+    <div>
+      <div class="reframe-demo" id="reframeDemo">
+        <div class="reframe-track before-track">
+          <div class="reframe-frame">
+            <div class="reframe-crop before-crop"></div>
+            <div class="subject before"></div>
+          </div>
+          <span class="reframe-label" style="left: 0.75rem;">Static wide shot</span>
+        </div>
+        <div class="reframe-track after-track" id="afterTrack">
+          <div class="reframe-frame">
+            <div class="reframe-crop after-crop" id="afterCrop"></div>
+            <div class="subject after" id="afterSubject"></div>
+          </div>
+          <span class="reframe-label" id="afterLabel" style="right: 0.75rem;">Auto-reframed for vertical</span>
+        </div>
+        <div class="reframe-divider" id="divider"></div>
+        <div class="reframe-handle" id="handle">⇔</div>
+        <input
+          type="range"
+          class="reframe-input"
+          id="reframeSlider"
+          min="0" max="100" value="62"
+          aria-label="Drag to compare the static shot with the auto-reframed vertical crop"
+        />
+      </div>
+      <p class="mt-3 text-center text-sm text-zinc-500">Face Tracking: reframes a static shot to follow the subject, automatically.</p>
+    </div>
+  </section>
+
+  <!-- Value strip -->
+  <section class="border-y border-white/10 bg-surface">
+    <div class="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:grid-cols-3">
+      <div>
+        <p class="text-sm font-semibold text-zinc-100">Nothing uploaded</p>
+        <p class="mt-1 text-sm text-zinc-500">Every job runs on your machine, on your files. No cloud processing, no upload wait.</p>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-zinc-100">No telemetry</p>
+        <p class="mt-1 text-sm text-zinc-500">No analytics, no tracking, no third-party calls from the app while you work.</p>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-zinc-100">One app, not five tabs</p>
+        <p class="mt-1 text-sm text-zinc-500">Stop juggling a downloader, a converter, a caption generator and a background remover.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="mx-auto max-w-6xl px-6 py-24">
+    <h2 class="max-w-xl text-3xl font-semibold tracking-[-0.02em] text-white">Six tools editors actually use, built into the app.</h2>
+
+    <div class="mt-12 grid gap-4 lg:grid-cols-3">
+      <!-- Large: Face Tracking -->
+      <article class="lg:col-span-2 lg:row-span-2 flex flex-col justify-between rounded-lg border border-white/10 bg-surface p-8 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <div>
+          <div class="flex items-center gap-3">
+            <svg class="h-6 w-6 text-accent-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.6 3-6 7-6s7 2.4 7 6"/><rect x="2.5" y="3.5" width="19" height="17" rx="2"/></svg>
+            <h3 class="text-lg font-semibold text-zinc-100">Face Tracking</h3>
+          </div>
+          <p class="mt-3 max-w-md text-sm text-zinc-400">Turn a horizontal interview or talking-head clip into a vertical short automatically — the crop follows the subject's face frame by frame, no manual keyframing.</p>
+        </div>
+        <p class="mt-8 text-sm text-accent-text">Built for Reels, Shorts and TikTok cuts.</p>
+      </article>
+
+      <!-- Medium: Captions -->
+      <article class="rounded-lg border border-white/10 bg-surface p-6 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <svg class="h-6 w-6 text-accent-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 15h5M13 15h5M6 11h12"/></svg>
+        <h3 class="mt-3 text-base font-semibold text-zinc-100">Automatic Captions</h3>
+        <p class="mt-2 text-sm text-zinc-400">Local speech-to-text with styled, burned-in presets. No audio ever leaves your machine to get transcribed.</p>
+      </article>
+
+      <!-- Medium: Image hub -->
+      <article class="rounded-lg border border-white/10 bg-surface p-6 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <svg class="h-6 w-6 text-accent-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+        <h3 class="mt-3 text-base font-semibold text-zinc-100">Remove Background &amp; Upscale</h3>
+        <p class="mt-2 text-sm text-zinc-400">Clean cutouts and sharper thumbnails with a before/after slider so you can see the result before you save it.</p>
+      </article>
+
+      <!-- Small row -->
+      <article class="rounded-lg border border-white/10 bg-surface p-6 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <h3 class="text-base font-semibold text-zinc-100">Media Downloader</h3>
+        <p class="mt-2 text-sm text-zinc-400">Pull source video or audio from most major platforms, straight to a file — no browser extension.</p>
+      </article>
+      <article class="rounded-lg border border-white/10 bg-surface p-6 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <h3 class="text-base font-semibold text-zinc-100">Convert &amp; Extract Audio</h3>
+        <p class="mt-2 text-sm text-zinc-400">Swap formats or pull a clean audio track, with a fast remux path and transcode fallback.</p>
+      </article>
+      <article class="rounded-lg border border-white/10 bg-surface p-6 shadow-[0_2px_4px_0_rgba(0,0,0,0.4)]">
+        <h3 class="text-base font-semibold text-zinc-100">Cut Silence &amp; Fix Audio</h3>
+        <p class="mt-2 text-sm text-zinc-400">Trim dead air and clean up levels before it ever reaches your timeline.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Why desktop -->
+  <section id="privacy" class="border-t border-white/10 bg-surface">
+    <div class="mx-auto max-w-6xl px-6 py-20">
+      <h2 class="max-w-xl text-3xl font-semibold tracking-[-0.02em] text-white">Why this runs on your machine, not ours.</h2>
+      <p class="mt-4 max-w-2xl text-zinc-400">
+        Editors work with client footage under NDA, unreleased cuts, and raw interviews. Editools processes video and audio with the native binaries bundled in the app — nothing is uploaded to run a job, and the app makes no analytics or tracking calls while you work.
+      </p>
+      <div class="mt-10 grid gap-8 sm:grid-cols-3">
+        <div class="border-t border-white/10 pt-4">
+          <p class="text-2xl font-semibold text-zinc-100">Local</p>
+          <p class="mt-1 text-sm text-zinc-500">ffmpeg, yt-dlp and the AI models run on your CPU/GPU, inside the app.</p>
+        </div>
+        <div class="border-t border-white/10 pt-4">
+          <p class="text-2xl font-semibold text-zinc-100">Offline-capable</p>
+          <p class="mt-1 text-sm text-zinc-500">Once installed, most tools work without an internet connection.</p>
+        </div>
+        <div class="border-t border-white/10 pt-4">
+          <p class="text-2xl font-semibold text-zinc-100">Yours</p>
+          <p class="mt-1 text-sm text-zinc-500">Output files land in a folder you choose. No account required to edit.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="download" class="mx-auto max-w-6xl px-6 py-24 text-center">
+    <h2 class="text-3xl font-semibold tracking-[-0.02em] text-white sm:text-4xl">Get the toolbox.</h2>
+    <p class="mx-auto mt-4 max-w-md text-zinc-400">One installer. No account to create before you can start editing.</p>
+    <a href="#" class="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-accent px-8 text-sm font-semibold text-zinc-950 transition-colors hover:bg-accent-strong">
+      Download for Windows — free
+    </a>
+    <p class="mt-4 text-xs text-zinc-600">Preview build — this page is a local draft, not the published site.</p>
+  </section>
+
+  <footer class="border-t border-white/10 py-8">
+    <div class="mx-auto max-w-6xl px-6 text-xs text-zinc-600">© Editools. Local draft for internal review.</div>
+  </footer>
+
+  <script>
+    (function () {
+      var demo = document.getElementById('reframeDemo');
+      var afterTrack = document.getElementById('afterTrack');
+      var divider = document.getElementById('divider');
+      var handle = document.getElementById('handle');
+      var afterCrop = document.getElementById('afterCrop');
+      var afterSubject = document.getElementById('afterSubject');
+      var afterLabel = document.getElementById('afterLabel');
+      var slider = document.getElementById('reframeSlider');
+
+      function apply(value) {
+        var pct = value + '%';
+        demo.style.setProperty('--split', pct);
+        afterLabel.style.opacity = value < 22 ? '0' : '1';
+      }
+
+      slider.addEventListener('input', function (e) {
+        apply(Number(e.target.value));
+      });
+
+      apply(Number(slider.value));
+    })();
+  </script>
+</body>
+</html>
