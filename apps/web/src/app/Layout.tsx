@@ -16,7 +16,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="z-20 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur">
+      <header className="z-20 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-8 px-4">
           <Link to="/" className="text-sm font-semibold tracking-[0.2em] text-zinc-100">
             {t('appName')}
@@ -43,7 +43,7 @@ export function Layout() {
       <main className={isHome ? 'flex flex-1 flex-col' : 'mx-auto w-full max-w-3xl flex-1 px-4 py-10'}>
         <Outlet />
       </main>
-      <footer className="z-20 border-t border-zinc-800/80">
+      <footer className="z-20 border-t border-white/10">
         <div className="mx-auto w-full max-w-4xl space-y-1 px-4 py-4 text-xs text-zinc-500">
           <p>{t('footer.privacy')}</p>
           <p>{t('footer.legal')}</p>

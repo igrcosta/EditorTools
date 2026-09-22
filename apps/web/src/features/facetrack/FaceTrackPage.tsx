@@ -82,7 +82,7 @@ export function FaceTrackPage() {
           )}
 
           {file && (
-            <Card className="space-y-4 divide-y divide-zinc-800/70">
+            <Card className="space-y-4 divide-y divide-white/10">
               <div className="flex items-center justify-between gap-4">
                 <p className="min-w-0 truncate text-sm text-zinc-300">
                   {file.name} <span className="text-zinc-500">· {formatBytes(file.size)}</span>

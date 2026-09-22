@@ -31,7 +31,7 @@ export function HomePage() {
             <Link
               key={to}
               to={to}
-              className="group rounded-lg border border-zinc-700/60 bg-zinc-950/70 p-4 text-left backdrop-blur transition-colors hover:border-accent"
+              className="group rounded-lg border border-white/10 bg-surface/60 p-4 text-left backdrop-blur transition duration-300 hover:border-accent/50 hover:shadow-glow"
             >
               <p className="font-medium text-zinc-100 group-hover:text-accent">
                 {t(`home.${key}.title`)}

@@ -36,7 +36,7 @@ export function BeforeAfter({ before, after, transparent = false, zoomable = fal
 
   return (
     <div className="space-y-2">
-      <div className={actualSize ? 'max-h-[70vh] overflow-auto rounded-md border border-zinc-800' : ''}>
+      <div className={actualSize ? 'max-h-[70vh] overflow-auto rounded-md border border-white/10' : ''}>
         <div className="relative w-full select-none overflow-hidden rounded-md bg-zinc-950" style={frameStyle}>
           <img src={before} alt={t('compare.before')} draggable={false} className="block w-full" />
           <div

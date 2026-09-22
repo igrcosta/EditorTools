@@ -63,8 +63,8 @@ export function Dropzone({ accept, disabled, label, hint, pasteHint, onFile }: P
       }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
-      className={`w-full cursor-pointer rounded-lg border-2 border-dashed p-10 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        dragOver ? 'border-accent bg-accent/5' : 'border-zinc-700 hover:border-zinc-500'
+      className={`w-full cursor-pointer rounded-lg border-2 border-dashed p-10 text-center transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        dragOver ? 'border-accent bg-accent/5 shadow-glow' : 'border-white/15 hover:border-white/30'
       }`}
     >
       <p className="font-medium text-zinc-200">{label}</p>

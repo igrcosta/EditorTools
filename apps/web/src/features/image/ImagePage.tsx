@@ -15,7 +15,7 @@ export function ImagePage() {
     <div className="mx-auto max-w-xl space-y-5">
       <PageHeader eyebrow={t('nav.image')} title={t('imageHub.title')} description={t('imageHub.description')} />
 
-      <div className="flex gap-1 rounded-full border border-zinc-800 bg-zinc-900 p-1">
+      <div className="flex gap-1 rounded-full border border-white/10 bg-surface/70 p-1">
         {(['removeBg', 'upscale'] as const).map((key) => (
           <button
             key={key}

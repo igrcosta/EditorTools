@@ -103,8 +103,8 @@ export function JobStatus({ starting, job, onCancel, preview = false, previewNod
             download
             className={
               preview
-                ? 'inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-accent-strong'
-                : 'inline-flex h-10 items-center justify-center rounded-md border border-zinc-700 px-4 text-sm text-zinc-200 transition-colors hover:border-zinc-500'
+                ? 'inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-zinc-950 shadow-glow transition hover:bg-accent-strong'
+                : 'inline-flex h-10 items-center justify-center rounded-md border border-white/10 px-4 text-sm text-zinc-200 transition hover:border-accent/40'
             }
           >
             {preview ? t('job.saveFile') : t('job.saveAgain')}

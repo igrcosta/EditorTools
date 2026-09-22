@@ -131,7 +131,7 @@ export function DownloadPage() {
       )}
 
       {dl.analysis && (
-        <Card className="space-y-4 divide-y divide-zinc-800/70">
+        <Card className="space-y-4 divide-y divide-white/10">
           <div className="flex gap-4">
             {dl.analysis.thumbnailUrl && (
               <img

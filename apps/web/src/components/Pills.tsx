@@ -20,8 +20,10 @@ export function Pills<T extends string | number>({ options, value, onChange, lab
             type="button"
             onClick={() => onChange(opt)}
             disabled={off}
-            className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              value === opt ? 'border-accent text-accent' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+            className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              value === opt
+                ? 'border-accent text-accent shadow-glow'
+                : 'border-white/10 text-zinc-400 hover:border-white/25'
             }`}
           >
             {label(opt)}

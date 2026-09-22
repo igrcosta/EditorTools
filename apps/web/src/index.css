@@ -5,6 +5,9 @@
   --color-accent: #9146ff;
   --color-accent-strong: #7a2df2;
 
+  /* Glass surface: translucent panel over the zinc-950 page background, meant to sit under backdrop-blur. */
+  --color-surface: #111318;
+
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -13,11 +16,15 @@
   --font-weight-medium: 510;
   --font-weight-semibold: 600;
 
-  /* Cards/panels read as 12px-radius surfaces; buttons, inputs and pills already match at md/full. */
-  --radius-lg: 0.75rem;
+  /* Cards/panels read as 14px-radius surfaces; buttons, inputs and pills already match at md/full. */
+  --radius-lg: 0.875rem;
 
   --shadow-sm: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px;
   --shadow-xl: rgba(8, 9, 10, 0.6) 0px 4px 32px 0px;
+  /* Soft accent glow: the one recurring "premium" cue — primary actions, selected/focused state, active fill. */
+  --shadow-glow:
+    0 0 0 1px color-mix(in oklab, var(--color-accent) 45%, transparent),
+    0 8px 24px -8px color-mix(in oklab, var(--color-accent) 65%, transparent);
 }
 
 body {
