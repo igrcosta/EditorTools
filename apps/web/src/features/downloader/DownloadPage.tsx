@@ -96,7 +96,6 @@ export function DownloadPage() {
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <PageHeader
-        eyebrow={t('common:nav.downloader')}
         title={t('title')}
         description={t('description')}
         hint={t('platformsHint')}

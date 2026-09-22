@@ -110,7 +110,7 @@ export function CaptionsPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader eyebrow={t('common:nav.captions')} title={t('title')} description={t('description')} />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {features && !features.captions ? (
         <DesktopOnlyNotice />

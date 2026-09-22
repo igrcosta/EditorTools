@@ -9,10 +9,10 @@ export function ProgressBar({ value }: { value: number | null }) {
       aria-valuenow={value ?? undefined}
     >
       {value === null ? (
-        <div className="progress-indeterminate absolute top-0 h-full w-1/3 rounded-full bg-accent shadow-glow" />
+        <div className="progress-indeterminate absolute top-0 h-full w-1/3 rounded-full bg-accent" />
       ) : (
         <div
-          className="h-full rounded-full bg-accent shadow-glow transition-[width] duration-300"
+          className="h-full rounded-full bg-accent transition-[width] duration-300"
           style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
         />
       )}

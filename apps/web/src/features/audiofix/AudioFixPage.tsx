@@ -65,7 +65,7 @@ export function AudioFixPage({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className="mx-auto max-w-xl space-y-5">
       {!embedded && (
-        <PageHeader eyebrow={t('common:nav.audio')} title={t('title')} description={t('description')} />
+        <PageHeader title={t('title')} description={t('description')} />
       )}
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="audio/*,video/*" onFile={onFile} />}

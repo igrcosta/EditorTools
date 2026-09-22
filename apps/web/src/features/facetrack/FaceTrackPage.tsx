@@ -62,7 +62,7 @@ export function FaceTrackPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader eyebrow={t('common:nav.video')} title={t('title')} description={t('description')} />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {features && !features.faceTracking ? (
         <DesktopOnlyNotice />

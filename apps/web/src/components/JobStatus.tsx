@@ -103,7 +103,7 @@ export function JobStatus({ starting, job, onCancel, preview = false, previewNod
             download
             className={
               preview
-                ? 'inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-zinc-950 shadow-glow transition hover:bg-accent-strong'
+                ? 'inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-zinc-950 transition hover:bg-accent-strong'
                 : 'inline-flex h-10 items-center justify-center rounded-md border border-white/10 px-4 text-sm text-zinc-200 transition hover:border-accent/40'
             }
           >

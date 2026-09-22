@@ -71,7 +71,6 @@ export function UpscalePage({ embedded = false }: { embedded?: boolean }) {
     <div className="mx-auto max-w-xl space-y-5">
       {!embedded && (
         <PageHeader
-          eyebrow={t('common:nav.image')}
           title={t('upscale.title')}
           description={t('upscale.description')}
         />

@@ -84,7 +84,7 @@ export function ConvertPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader eyebrow={t('common:nav.convert')} title={t('title')} description={t('description')} />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="video/*,audio/*" onFile={onFile} />}
 

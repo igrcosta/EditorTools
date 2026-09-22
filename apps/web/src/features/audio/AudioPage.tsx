@@ -13,9 +13,9 @@ export function AudioPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader eyebrow={t('nav.audio')} title={t('audioHub.title')} description={t('audioHub.description')} />
+      <PageHeader title={t('audioHub.title')} description={t('audioHub.description')} />
 
-      <div className="flex gap-1 rounded-full border border-white/10 bg-surface/70 p-1">
+      <div className="flex gap-1 rounded-full border border-white/10 bg-surface p-1">
         {(['silence', 'fix'] as const).map((key) => (
           <button
             key={key}

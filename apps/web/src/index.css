@@ -7,8 +7,8 @@
   /* Same hue, lightened: #9146ff on the zinc-950 page background is ~4.3:1, under WCAG AA's 4.5:1 for text. Use this instead of --color-accent wherever the accent renders as text on the page background. */
   --color-accent-text: #b083ff;
 
-  /* Glass surface: translucent panel over the zinc-950 page background, meant to sit under backdrop-blur. */
-  --color-surface: #111318;
+  /* Second neutral layer: cards/panels/toolbars sit on this instead of the page background. Solid, not glass — nothing sits behind these surfaces to justify blurring it. */
+  --color-surface: #131519;
 
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -23,10 +23,6 @@
 
   --shadow-sm: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px;
   --shadow-xl: rgba(8, 9, 10, 0.6) 0px 4px 32px 0px;
-  /* Soft accent glow: the one recurring "premium" cue — primary actions, selected/focused state, active fill. */
-  --shadow-glow:
-    0 0 0 1px color-mix(in oklab, var(--color-accent) 45%, transparent),
-    0 8px 24px -8px color-mix(in oklab, var(--color-accent) 65%, transparent);
 }
 
 body {

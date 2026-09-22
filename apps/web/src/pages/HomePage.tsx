@@ -20,8 +20,7 @@ export function HomePage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.75)_100%)]" />
 
       <div className="relative z-10 flex flex-col items-center px-4 py-20 text-center">
-        <p className="font-mono text-xs text-accent-text/80">{`{ ${t('appName')} }`}</p>
-        <h1 className="mt-6 bg-gradient-to-b from-white via-zinc-100 to-accent bg-clip-text text-5xl leading-[0.95] font-semibold tracking-[-0.03em] text-transparent sm:text-7xl">
+        <h1 className="text-5xl leading-[0.95] font-semibold tracking-[-0.03em] text-white sm:text-7xl">
           {t('tagline')}
         </h1>
         <p className="mt-5 text-base text-zinc-400">{t('subtitle')}</p>
@@ -31,7 +30,7 @@ export function HomePage() {
             <Link
               key={to}
               to={to}
-              className="group rounded-lg border border-white/10 bg-surface/60 p-4 text-left backdrop-blur transition duration-300 hover:border-accent/50 hover:shadow-glow"
+              className="group rounded-lg border border-white/10 bg-surface p-4 text-left transition-colors duration-200 hover:border-accent/50"
             >
               <p className="font-medium text-zinc-100 group-hover:text-accent-text">
                 {t(`home.${key}.title`)}
