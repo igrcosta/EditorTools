@@ -8,12 +8,16 @@ type Ort = typeof import('onnxruntime-node');
  * it, the desktop app externalizes it from the esbuild bundle.
  */
 let ortPromise: Promise<Ort | null> | null = null;
+let lastLoadError: unknown = null;
 
 export function loadOrt(): Promise<Ort | null> {
   if (!ortPromise) {
     ortPromise = import('onnxruntime-node').then(
       (m) => m,
-      () => null,
+      (err) => {
+        lastLoadError = err;
+        return null;
+      },
     );
   }
   return ortPromise;
@@ -21,6 +25,11 @@ export function loadOrt(): Promise<Ort | null> {
 
 export async function canLoadOnnxRuntime(): Promise<boolean> {
   return (await loadOrt()) !== null;
+}
+
+/** The error from the last failed load attempt, for diagnostics (e.g. missing VC++ runtime, wrong arch). */
+export function onnxLoadError(): unknown {
+  return lastLoadError;
 }
 
 interface CachedSession {

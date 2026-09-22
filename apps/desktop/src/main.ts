@@ -58,6 +58,12 @@ function configureEnvironment(): void {
     process.env.MODELS_DIR = path.join(res, 'models');
     process.env.REALESRGAN_PATH = path.join(res, 'bin', 'realesrgan', exe('realesrgan-ncnn-vulkan'));
     process.env.WHISPER_PATH = path.join(res, 'bin', 'whisper', exe('whisper-cli'));
+    // No visible console on a double-clicked .exe — write logs to a file so a
+    // feature that silently shows "unavailable" on someone else's machine can
+    // still be diagnosed (send this file).
+    const logDir = path.join(app.getPath('userData'), 'logs');
+    mkdirSync(logDir, { recursive: true });
+    process.env.LOG_FILE = path.join(logDir, 'app.log');
   } else {
     // dist/main.cjs → apps/desktop → repo root
     const repoRoot = path.join(__dirname, '..', '..', '..');

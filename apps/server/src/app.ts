@@ -23,7 +23,7 @@ import { registerVideoRoutes } from './routes/video';
  */
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: config.logLevel },
+    logger: config.logFile ? { level: config.logLevel, file: config.logFile } : { level: config.logLevel },
     bodyLimit: 16 * 1024, // API requests are tiny JSON payloads
     trustProxy: config.trustProxy,
   });

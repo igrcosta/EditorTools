@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import type { FastifyBaseLogger } from 'fastify';
 import type { FeaturesResponse } from '@editools/shared';
 import { config } from '../config';
-import { canLoadOnnxRuntime } from './onnx';
+import { canLoadOnnxRuntime, onnxLoadError } from './onnx';
 
 export const MODEL_FILES = {
   isnet: 'isnet-general-use.onnx',
@@ -17,7 +18,14 @@ export function modelPath(name: keyof typeof MODEL_FILES): string | null {
 }
 
 /** Runtime availability: master switch(es) + files on disk + (for onnx tools) a loadable runtime. */
-export async function getFeatures(): Promise<FeaturesResponse> {
+export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResponse> {
+  const whisperMissing = config.whisperPath === null || !existsSync(config.whisperPath);
+  if (config.captionsEnabled && (whisperMissing || modelPath('whisperBase') === null)) {
+    log?.warn(
+      { whisperPath: config.whisperPath, modelsDir: config.modelsDir },
+      'captions unavailable: whisper binary or model not found on disk',
+    );
+  }
   const captions =
     config.captionsEnabled &&
     config.whisperPath !== null &&
@@ -28,10 +36,20 @@ export async function getFeatures(): Promise<FeaturesResponse> {
     return { removeBackground: false, upscale: false, faceTracking: false, captions };
   }
   const ort = await canLoadOnnxRuntime();
+  if (!ort) {
+    log?.warn(
+      { err: onnxLoadError() },
+      'onnxruntime-node failed to load: Remove Background / Face Tracking unavailable',
+    );
+  }
+  const upscaleAvailable = config.realesrganPath !== null && existsSync(config.realesrganPath);
+  if (!upscaleAvailable) {
+    log?.warn({ realesrganPath: config.realesrganPath }, 'upscale unavailable: realesrgan binary not found on disk');
+  }
   return {
     removeBackground: ort && modelPath('isnet') !== null,
     faceTracking: ort && modelPath('yunet') !== null,
-    upscale: config.realesrganPath !== null && existsSync(config.realesrganPath),
+    upscale: upscaleAvailable,
     captions,
   };
 }

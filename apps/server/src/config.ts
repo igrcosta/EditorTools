@@ -30,6 +30,8 @@ export const config = {
   host: process.env.HOST ?? '127.0.0.1',
   port: Number(process.env.PORT ?? 3001),
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  /** When set, logs also go to this file (the desktop app points it at userData/logs — no visible console otherwise). */
+  logFile: process.env.LOG_FILE ?? null,
   /** Set TRUST_PROXY=1 behind a hosting proxy so rate limiting sees real client IPs. */
   trustProxy: process.env.TRUST_PROXY === '1',
   /** When set, the server also serves the built web app from this directory (single-port deploy). */
