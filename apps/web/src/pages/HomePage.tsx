@@ -20,7 +20,15 @@ export function HomePage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.75)_100%)]" />
 
       <div className="relative z-10 flex flex-col items-center px-4 py-20 text-center">
-        <h1 className="text-5xl leading-[0.95] font-semibold tracking-[-0.03em] text-white sm:text-7xl">
+        <img
+          src="/logo-mark.png"
+          alt="Editools"
+          width={116}
+          height={88}
+          className="h-[88px] w-auto"
+          style={{ filter: 'drop-shadow(0 0 28px rgba(132,77,234,0.55))' }}
+        />
+        <h1 className="mt-6 font-display text-5xl leading-[0.95] text-white sm:text-7xl">
           {t('tagline')}
         </h1>
         <p className="mt-5 text-base text-zinc-400">{t('subtitle')}</p>

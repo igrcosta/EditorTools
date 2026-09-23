@@ -163,6 +163,9 @@ function createWindow(port: number): void {
     autoHideMenuBar: true,
     backgroundColor: '#09090b',
     title: 'Editools',
+    // The packaged .exe already carries this icon (see build.win.icon); setting it here too
+    // covers `npm run desktop:dev`, where Electron would otherwise show its own default icon.
+    icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

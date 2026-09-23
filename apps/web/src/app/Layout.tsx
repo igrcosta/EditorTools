@@ -18,7 +18,8 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <header className="z-20 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-8 px-4">
-          <Link to="/" className="text-sm font-semibold tracking-[0.2em] text-zinc-100">
+          <Link to="/" className="flex items-center gap-2 font-display text-sm tracking-[0.06em] text-zinc-100">
+            <img src="/logo-mark.png" alt="" className="h-6 w-auto" width={32} height={24} />
             {t('appName')}
           </Link>
           <nav className="flex items-center gap-1 sm:gap-2">

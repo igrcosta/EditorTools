@@ -7,7 +7,7 @@
 <meta name="description" content="Download, convert, clean audio, remove backgrounds, upscale, auto-reframe and auto-caption — all local, all in one app. No uploads, no subscriptions to the cloud, no watching a progress bar on someone else's server." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -19,12 +19,21 @@
           'accent-text': '#b083ff',
           surface: '#131519',
         },
-        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        fontFamily: {
+          sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['Klaxon Crunchy', 'Space Grotesk', 'ui-sans-serif', 'sans-serif'],
+        },
       },
     },
   };
 </script>
 <style>
+  @font-face {
+    font-family: 'Klaxon Crunchy';
+    src: url('fonts/klaxon-crunchy.otf') format('opentype');
+    font-weight: 400;
+    font-display: swap;
+  }
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -54,7 +63,10 @@
   <!-- Nav -->
   <header class="sticky top-0 z-30 border-b border-white/10 bg-zinc-950/85 backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-      <a href="#" class="text-base font-semibold tracking-[0.14em] text-zinc-100">EDITOOLS</a>
+      <a href="#" class="flex items-center gap-2 font-display text-base tracking-[0.06em] text-zinc-100">
+        <img src="logo-mark.png" alt="" class="h-7 w-auto" width="37" height="28" />
+        EDITOOLS
+      </a>
       <nav class="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
         <a href="#features" class="transition-colors hover:text-zinc-100">Features</a>
         <a href="#privacy" class="transition-colors hover:text-zinc-100">Why desktop</a>
@@ -69,7 +81,8 @@
   <!-- Hero -->
   <section class="mx-auto grid max-w-6xl items-center gap-14 px-6 pt-16 pb-20 lg:grid-cols-2 lg:pt-24">
     <div>
-      <h1 class="text-4xl font-semibold leading-[1.08] tracking-[-0.02em] text-white sm:text-5xl">
+      <img src="logo-mark.png" alt="" class="h-14 w-auto" width="74" height="56" style="filter: drop-shadow(0 0 24px rgba(132,77,234,0.5));" />
+      <h1 class="mt-5 font-display text-4xl leading-[1.08] text-white sm:text-5xl">
         Every tool an editor reaches for daily, without leaving your desktop.
       </h1>
       <p class="mt-5 max-w-lg text-lg text-zinc-400">
