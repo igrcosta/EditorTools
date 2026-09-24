@@ -24,7 +24,9 @@ import { useObjectUrl } from '../../lib/useObjectUrl';
 import { CaptionFrame } from './CaptionFrame';
 import { CustomTemplateEditor } from './CustomTemplateEditor';
 import { deleteCustomTemplate, loadCustomTemplates, saveCustomTemplate, type CustomTemplate } from './customTemplates';
+import { resolvePreviewStyle } from './previewStyles';
 import { TemplateGallery } from './TemplateGallery';
+import { Timeline } from './Timeline';
 
 const ACCEPT = 'video/mp4,video/quicktime,video/webm,video/x-matroska';
 const DEFAULT_KEY: CaptionPreset = 'clean';
@@ -48,6 +50,7 @@ export function CaptionsPage() {
   const [positionX, setPositionX] = useState(CAPTION_POSITION_DEFAULT);
   const [positionY, setPositionY] = useState(CAPTION_POSITION_Y_DEFAULT);
   const [scale, setScale] = useState(CAPTION_SCALE_DEFAULT);
+  const [selectedWord, setSelectedWord] = useState<number | null>(null);
   const localUrl = useObjectUrl(file);
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export function CaptionsPage() {
     : null;
   const preset: CaptionPreset = selectedCustom ? DEFAULT_KEY : (selectedKey as CaptionPreset);
   const customStyle: CustomCaptionStyle | null = selectedCustom ? selectedCustom.style : null;
+  const previewStyle = resolvePreviewStyle(selectedKey, customTemplates);
 
   // The transcribe job's "file" is words.json, not media — pull it in and switch to the editor.
   useEffect(() => {
@@ -100,6 +104,7 @@ export function CaptionsPage() {
     setPositionX(CAPTION_POSITION_DEFAULT);
     setPositionY(CAPTION_POSITION_Y_DEFAULT);
     setScale(CAPTION_SCALE_DEFAULT);
+    setSelectedWord(null);
     transcribeRunner.reset();
     renderRunner.reset();
   };
@@ -144,6 +149,7 @@ export function CaptionsPage() {
 
   const deleteWord = (index: number) => {
     setWords((prev) => (prev ? prev.filter((_, i) => i !== index) : prev));
+    setSelectedWord((prev) => (prev === null ? prev : prev === index ? null : prev > index ? prev - 1 : prev));
   };
 
   const sampleText = words && words.length > 0 ? words.slice(0, 3).map((w) => w.text).join(' ') : t('samplePlaceholder');
@@ -243,6 +249,7 @@ export function CaptionsPage() {
                           }}
                           onScaleChange={setScale}
                           sampleText={sampleText}
+                          previewStyle={previewStyle}
                           disabled={renderBusy}
                         />
                       </div>
@@ -259,11 +266,17 @@ export function CaptionsPage() {
                       <p className="text-xs text-zinc-500">{t('editHint')}</p>
                       <div className="max-h-80 space-y-1 overflow-y-auto">
                         {words.map((word, i) => (
-                          <div key={i} className="flex items-center gap-2">
+                          <div
+                            key={i}
+                            className={`flex items-center gap-2 rounded border-l-2 pl-1 ${
+                              selectedWord === i ? 'border-accent' : 'border-transparent'
+                            }`}
+                          >
                             <input
                               type="text"
                               value={word.text}
                               onChange={(e) => updateWord(i, { text: e.target.value })}
+                              onFocus={() => setSelectedWord(i)}
                               disabled={renderBusy}
                               className="h-8 min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
                             />
@@ -273,6 +286,7 @@ export function CaptionsPage() {
                               min="0"
                               value={word.start}
                               onChange={(e) => updateWord(i, { start: Number(e.target.value) })}
+                              onFocus={() => setSelectedWord(i)}
                               disabled={renderBusy}
                               className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
                             />
@@ -282,6 +296,7 @@ export function CaptionsPage() {
                               min="0"
                               value={word.end}
                               onChange={(e) => updateWord(i, { end: Number(e.target.value) })}
+                              onFocus={() => setSelectedWord(i)}
                               disabled={renderBusy}
                               className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
                             />
@@ -299,6 +314,21 @@ export function CaptionsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {localUrl && !renderDone && (
+                    <Timeline
+                      videoUrl={localUrl}
+                      words={words}
+                      selectedIndex={selectedWord}
+                      onSelect={setSelectedWord}
+                      onUpdateWord={updateWord}
+                      disabled={renderBusy}
+                      playLabel={t('timeline.play')}
+                      pauseLabel={t('timeline.pause')}
+                      zoomInLabel={t('timeline.zoomIn')}
+                      zoomOutLabel={t('timeline.zoomOut')}
+                    />
+                  )}
 
                   {renderRunner.errorCode && (
                     <ErrorMessage>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CAPTION_ANIMATIONS, CAPTION_FONTS, type CaptionAnimation, type CaptionFont, type CustomCaptionStyle } from '@editools/shared';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { CUSTOM_FONT_FAMILY, outlineShadow, withAlpha } from './previewStyles';
 
 const ANIMATION_LABEL: Record<CaptionAnimation, string> = {
   none: 'Static',
@@ -18,19 +19,6 @@ const FONT_LABEL: Record<CaptionFont, string> = {
   bangers: 'Bangers',
 };
 
-const FONT_FAMILY: Record<CaptionFont, string> = {
-  anton: 'Anton',
-  'bebas-neue': "'Bebas Neue'",
-  poppins: 'Poppins',
-  'archivo-black': "'Archivo Black'",
-  'luckiest-guy': "'Luckiest Guy'",
-  bangers: 'Bangers',
-};
-
-function outlineShadow(color: string): string {
-  return [-1, 1].flatMap((x) => [-1, 1].map((y) => `${x}px ${y}px 0 ${color}`)).join(', ');
-}
-
 interface Props {
   onSave: (name: string, style: CustomCaptionStyle) => void;
   onCancel: () => void;
@@ -41,12 +29,29 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
   const [name, setName] = useState('');
   const [font, setFont] = useState<CaptionFont>('anton');
   const [primaryColorRgb, setPrimaryColorRgb] = useState('FFFFFF');
+  const [bold, setBold] = useState(true);
+  const [italic, setItalic] = useState(false);
   const [outline, setOutline] = useState(true);
   const [outlineColorRgb, setOutlineColorRgb] = useState('000000');
   const [shadow, setShadow] = useState(false);
+  const [background, setBackground] = useState(false);
+  const [backgroundColorRgb, setBackgroundColorRgb] = useState('000000');
+  const [backgroundOpacity, setBackgroundOpacity] = useState(0.6);
   const [animation, setAnimation] = useState<CaptionAnimation>('bounce');
 
-  const style: CustomCaptionStyle = { font, primaryColorRgb, outline, outlineColorRgb, shadow, animation };
+  const style: CustomCaptionStyle = {
+    font,
+    primaryColorRgb,
+    bold,
+    italic,
+    outline,
+    outlineColorRgb,
+    shadow,
+    background,
+    backgroundColorRgb,
+    backgroundOpacity,
+    animation,
+  };
 
   const save = () => {
     const trimmed = name.trim();
@@ -60,10 +65,15 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
         <span
           className="inline-block px-3 text-center text-2xl leading-tight"
           style={{
-            fontFamily: FONT_FAMILY[font],
+            fontFamily: CUSTOM_FONT_FAMILY[font],
+            fontWeight: bold ? 700 : 400,
+            fontStyle: italic ? 'italic' : undefined,
             color: `#${primaryColorRgb}`,
             textShadow: outline ? outlineShadow(`#${outlineColorRgb}`) : undefined,
             filter: shadow ? 'drop-shadow(2px 3px 2px rgba(0,0,0,0.7))' : undefined,
+            backgroundColor: background ? withAlpha(`#${backgroundColorRgb}`, backgroundOpacity) : undefined,
+            padding: background ? '2px 8px' : undefined,
+            borderRadius: background ? '4px' : undefined,
             animation: animation === 'none' ? undefined : `caption-preview-${animation} 1800ms ease-out infinite`,
           }}
         >
@@ -84,12 +94,23 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
               className={`cursor-pointer rounded-md border px-3 py-2 text-sm transition-colors ${
                 font === f ? 'border-accent text-accent-text' : 'border-white/10 text-zinc-400 hover:border-white/25'
               }`}
-              style={{ fontFamily: FONT_FAMILY[f] }}
+              style={{ fontFamily: CUSTOM_FONT_FAMILY[f] }}
             >
               {FONT_LABEL[f]}
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex gap-4">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+          <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} className="accent-accent" />
+          Bold
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+          <input type="checkbox" checked={italic} onChange={(e) => setItalic(e.target.checked)} className="accent-accent" />
+          Italic
+        </label>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -123,6 +144,38 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
           <input type="checkbox" checked={shadow} onChange={(e) => setShadow(e.target.checked)} className="accent-accent" />
           Shadow
         </label>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-white/10 p-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+          <input type="checkbox" checked={background} onChange={(e) => setBackground(e.target.checked)} className="accent-accent" />
+          Background box
+        </label>
+        {background && (
+          <div className="grid grid-cols-2 gap-4 pt-1">
+            <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <span className="block">Color</span>
+              <input
+                type="color"
+                value={`#${backgroundColorRgb}`}
+                onChange={(e) => setBackgroundColorRgb(e.target.value.slice(1).toUpperCase())}
+                className="h-9 w-full cursor-pointer rounded border border-white/10 bg-transparent"
+              />
+            </label>
+            <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <span className="block">Opacity</span>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={backgroundOpacity}
+                onChange={(e) => setBackgroundOpacity(Number(e.target.value))}
+                className="mt-2 w-full accent-accent"
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div>

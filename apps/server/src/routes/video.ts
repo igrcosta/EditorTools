@@ -52,9 +52,14 @@ const hexColor = z.string().regex(/^[0-9A-Fa-f]{6}$/, 'expected a 6-digit hex co
 const customCaptionStyleSchema = z.object({
   font: z.enum(CAPTION_FONTS),
   primaryColorRgb: hexColor,
+  bold: z.boolean(),
+  italic: z.boolean(),
   outline: z.boolean(),
   outlineColorRgb: hexColor,
   shadow: z.boolean(),
+  background: z.boolean(),
+  backgroundColorRgb: hexColor,
+  backgroundOpacity: z.coerce.number().min(0).max(1),
   animation: z.enum(CAPTION_ANIMATIONS),
 });
 

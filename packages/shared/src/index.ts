@@ -144,9 +144,15 @@ export interface CustomCaptionStyle {
   font: CaptionFont;
   /** Plain RGB hex, no "#" (e.g. "FFFFFF"). */
   primaryColorRgb: string;
+  bold: boolean;
+  italic: boolean;
   outline: boolean;
   outlineColorRgb: string;
   shadow: boolean;
+  background: boolean;
+  backgroundColorRgb: string;
+  /** 0 (fully transparent) – 1 (fully opaque). */
+  backgroundOpacity: number;
   animation: CaptionAnimation;
 }
 

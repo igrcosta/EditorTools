@@ -58,9 +58,14 @@ interface PresetStyle {
   /** Word-highlight color for the karaoke preset; null for presets with no per-word highlight. */
   highlightColorRgb: string | null;
   bold: boolean;
+  italic: boolean;
   borderStyle: 1 | 3;
   outline: number;
   shadow: number;
+  /** BackColour field: shadow tint when borderStyle=1, the opaque-box fill when borderStyle=3. */
+  backColorRgb: string;
+  /** 0–1. Only meaningful when borderStyle=3 (the box's own opacity) — the shadow tint (borderStyle=1) is always fully opaque. */
+  backOpacity: number;
   /** 'none' for every built-in preset — only a custom template can turn this on. */
   animation: CaptionAnimation;
 }
@@ -74,9 +79,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     outlineColorRgb: '000000',
     highlightColorRgb: null,
     bold: false,
+    italic: false,
     borderStyle: 1,
     outline: 2,
     shadow: 1,
+    backColorRgb: '000000',
+    backOpacity: 1,
     animation: 'none',
   },
   karaoke: {
@@ -87,9 +95,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     // Editools' own brand accent, used as the per-word highlight.
     highlightColorRgb: '9146FF',
     bold: true,
+    italic: false,
     borderStyle: 1,
     outline: 2,
     shadow: 1,
+    backColorRgb: '000000',
+    backOpacity: 1,
     // The one built-in preset that plays a per-word reveal — it's already the "active word" style.
     animation: 'bounce',
   },
@@ -100,9 +111,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     outlineColorRgb: '000000',
     highlightColorRgb: null,
     bold: false,
+    italic: false,
     borderStyle: 3,
     outline: 4,
     shadow: 0,
+    backColorRgb: '000000',
+    backOpacity: 0.5,
     animation: 'none',
   },
   minimal: {
@@ -112,9 +126,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     outlineColorRgb: '000000',
     highlightColorRgb: null,
     bold: false,
+    italic: false,
     borderStyle: 1,
     outline: 1,
     shadow: 1,
+    backColorRgb: '000000',
+    backOpacity: 1,
     animation: 'none',
   },
   bold: {
@@ -124,9 +141,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     outlineColorRgb: '000000',
     highlightColorRgb: null,
     bold: true,
+    italic: false,
     borderStyle: 1,
     outline: 4,
     shadow: 1,
+    backColorRgb: '000000',
+    backOpacity: 1,
     animation: 'none',
   },
   outline: {
@@ -137,9 +157,12 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     outlineColorRgb: '9146FF',
     highlightColorRgb: null,
     bold: true,
+    italic: false,
     borderStyle: 1,
     outline: 3,
     shadow: 0,
+    backColorRgb: '000000',
+    backOpacity: 1,
     animation: 'none',
   },
 };
@@ -168,12 +191,24 @@ function resolveStyle(preset: CaptionPreset, custom: CustomCaptionStyle | null):
     primaryColorRgb: custom.primaryColorRgb,
     outlineColorRgb: custom.outlineColorRgb,
     highlightColorRgb: null,
-    bold: true,
-    borderStyle: 1,
+    bold: custom.bold,
+    italic: custom.italic,
+    borderStyle: custom.background ? 3 : 1,
     outline: custom.outline ? 2.5 : 0,
     shadow: custom.shadow ? 1.5 : 0,
+    backColorRgb: custom.background ? custom.backgroundColorRgb : '000000',
+    backOpacity: custom.background ? custom.backgroundOpacity : 1,
     animation: custom.animation,
   };
+}
+
+/** Opacity (0–1) → ASS alpha byte, which is inverted: 00 = fully opaque, FF = fully transparent. */
+function opacityToAssAlpha(opacity: number): string {
+  const clamped = Math.min(1, Math.max(0, opacity));
+  return Math.round((1 - clamped) * 255)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase();
 }
 
 /**
@@ -247,7 +282,7 @@ export function buildAssTrack(
 ): string {
   const style = resolveStyle(preset, customStyle);
   const fontSize = Math.max(12, Math.round(videoHeight * style.fontSizeRatio * scale));
-  const backColor = style.borderStyle === 3 ? assStyleColor('000000', '80') : assStyleColor('000000', '00');
+  const backColor = assStyleColor(style.backColorRgb, opacityToAssAlpha(style.backOpacity));
   // Free placement (dragged on the video preview) beats a fixed zone grid — \pos anchors the
   // text's own center at an exact pixel, so alignment 5 (middle-center) is always correct here
   // regardless of where positionX/positionY put it; margins are meaningless once \pos is used.
@@ -271,7 +306,8 @@ export function buildAssTrack(
       assStyleColor(style.outlineColorRgb),
       backColor,
       style.bold ? -1 : 0,
-      0, 0, 0, 100, 100, 0, 0,
+      style.italic ? -1 : 0,
+      0, 0, 100, 100, 0, 0,
       style.borderStyle,
       style.outline,
       style.shadow,
@@ -288,13 +324,18 @@ export function buildAssTrack(
 
   const lines: string[] = [];
   const perWord = style.highlightColorRgb !== null || style.animation !== 'none';
+  // An entrance animation means a word must not exist on screen at all before its own line —
+  // showing it plainly first and only then animating it reads as "playing out of nowhere", not
+  // an entrance. A highlight-only style (no animation) is the other case per-word lines serve:
+  // the classic karaoke sweep, where the full line is already visible and only the color moves.
+  const revealProgressively = style.animation !== 'none';
   for (const chunk of groupWords(words)) {
     if (perWord) {
       const activeTags =
         animationTags(style.animation) + (style.highlightColorRgb ? `\\c${assInlineColor(style.highlightColorRgb)}` : '');
       chunk.words.forEach((word, i) => {
         const before = chunk.words.slice(0, i).map((w) => escapeAssText(w.text));
-        const after = chunk.words.slice(i + 1).map((w) => escapeAssText(w.text));
+        const after = revealProgressively ? [] : chunk.words.slice(i + 1).map((w) => escapeAssText(w.text));
         const active = `{${activeTags}}${escapeAssText(word.text)}{\\r}`;
         lines.push(dialogueLine(word.start, word.end, posTag + [...before, active, ...after].join(' ')));
       });

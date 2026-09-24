@@ -1,0 +1,285 @@
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import type { CaptionWord } from '@editools/shared';
+
+interface Props {
+  videoUrl: string;
+  words: CaptionWord[];
+  selectedIndex: number | null;
+  onSelect: (index: number | null) => void;
+  onUpdateWord: (index: number, patch: Partial<CaptionWord>) => void;
+  disabled?: boolean;
+  playLabel: string;
+  pauseLabel: string;
+  zoomInLabel: string;
+  zoomOutLabel: string;
+}
+
+const MIN_PX_PER_SEC = 20;
+const MAX_PX_PER_SEC = 300;
+const DEFAULT_PX_PER_SEC = 60;
+const MIN_WORD_DURATION = 0.08;
+const TICK_INTERVALS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120];
+
+function formatClock(seconds: number): string {
+  const s = Math.max(0, seconds);
+  const m = Math.floor(s / 60);
+  const rest = (s % 60).toFixed(1).padStart(4, '0');
+  return `${m}:${rest}`;
+}
+
+function tickInterval(pxPerSec: number): number {
+  return TICK_INTERVALS.find((i) => i * pxPerSec >= 70) ?? TICK_INTERVALS[TICK_INTERVALS.length - 1];
+}
+
+type DragMode = 'move' | 'resize-start' | 'resize-end';
+interface DragState {
+  index: number;
+  mode: DragMode;
+  startClientX: number;
+  origStart: number;
+  origEnd: number;
+}
+
+/**
+ * Scrubbable word timeline, subvid.app-style: play the clip, zoom the ruler, drag a word's
+ * edges to retime it or its body to shift it, click a word to select + seek. The plain
+ * text/number editor next to this stays as the accessible fallback for the same data.
+ */
+export function Timeline({
+  videoUrl,
+  words,
+  selectedIndex,
+  onSelect,
+  onUpdateWord,
+  disabled,
+  playLabel,
+  pauseLabel,
+  zoomInLabel,
+  zoomOutLabel,
+}: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const scrubbing = useRef(false);
+
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [pxPerSec, setPxPerSec] = useState(DEFAULT_PX_PER_SEC);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onTime = () => setCurrentTime(video.currentTime);
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    return () => {
+      video.removeEventListener('timeupdate', onTime);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+    };
+  }, []);
+
+  // Keep the playhead in view while the clip plays, without fighting manual scrubbing.
+  useEffect(() => {
+    if (!playing) return;
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const x = currentTime * pxPerSec;
+    if (x < scroller.scrollLeft || x > scroller.scrollLeft + scroller.clientWidth - 40) {
+      scroller.scrollLeft = Math.max(0, x - scroller.clientWidth / 3);
+    }
+  }, [currentTime, pxPerSec, playing]);
+
+  const seekTo = (seconds: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = Math.min(duration, Math.max(0, seconds));
+    setCurrentTime(video.currentTime);
+  };
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video || disabled) return;
+    if (video.paused) void video.play();
+    else video.pause();
+  };
+
+  const zoom = (factor: number) => {
+    setPxPerSec((prev) => Math.min(MAX_PX_PER_SEC, Math.max(MIN_PX_PER_SEC, Math.round(prev * factor))));
+  };
+
+  const clientXToSeconds = (clientX: number): number => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    return (clientX - rect.left) / pxPerSec;
+  };
+
+  const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (disabled || dragRef.current) return;
+    scrubbing.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    seekTo(clientXToSeconds(e.clientX));
+  };
+
+  const onTrackPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!scrubbing.current || disabled) return;
+    seekTo(clientXToSeconds(e.clientX));
+  };
+
+  const onTrackPointerUp = () => {
+    scrubbing.current = false;
+  };
+
+  const onWordPointerDown = (e: ReactPointerEvent<Element>, index: number, mode: DragMode) => {
+    if (disabled) return;
+    e.stopPropagation();
+    onSelect(index);
+    seekTo(words[index].start);
+    dragRef.current = { index, mode, startClientX: e.clientX, origStart: words[index].start, origEnd: words[index].end };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onWordPointerMove = (e: ReactPointerEvent<Element>) => {
+    const drag = dragRef.current;
+    if (!drag || disabled) return;
+    const deltaSec = (e.clientX - drag.startClientX) / pxPerSec;
+    if (drag.mode === 'resize-start') {
+      const start = Math.min(drag.origEnd - MIN_WORD_DURATION, Math.max(0, drag.origStart + deltaSec));
+      onUpdateWord(drag.index, { start });
+    } else if (drag.mode === 'resize-end') {
+      const end = Math.max(drag.origStart + MIN_WORD_DURATION, Math.min(duration || Infinity, drag.origEnd + deltaSec));
+      onUpdateWord(drag.index, { end });
+    } else {
+      const span = drag.origEnd - drag.origStart;
+      const start = Math.min(Math.max(0, duration - span), Math.max(0, drag.origStart + deltaSec));
+      onUpdateWord(drag.index, { start, end: start + span });
+    }
+  };
+
+  const onWordPointerUp = () => {
+    dragRef.current = null;
+  };
+
+  const trackWidth = Math.max(1, duration * pxPerSec);
+  const interval = tickInterval(pxPerSec);
+  const tickCount = duration > 0 ? Math.ceil(duration / interval) + 1 : 0;
+
+  return (
+    <div className="space-y-2 rounded-md border border-white/10 p-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={togglePlay}
+          disabled={disabled}
+          aria-label={playing ? pauseLabel : playLabel}
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 text-zinc-200 hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <i className={playing ? 'fi-rr-pause' : 'fi-rr-play'} aria-hidden="true" />
+        </button>
+        <span className="font-mono text-xs text-zinc-400 tabular-nums">
+          {formatClock(currentTime)} / {formatClock(duration)}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => zoom(1 / 1.4)}
+            disabled={disabled || pxPerSec <= MIN_PX_PER_SEC}
+            aria-label={zoomOutLabel}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-white/15 text-zinc-400 hover:border-accent/50 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <i className="fi-rr-zoom-out text-xs" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => zoom(1.4)}
+            disabled={disabled || pxPerSec >= MAX_PX_PER_SEC}
+            aria-label={zoomInLabel}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-white/15 text-zinc-400 hover:border-accent/50 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <i className="fi-rr-zoom-in text-xs" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        playsInline
+        preload="metadata"
+        className="hidden"
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+      />
+
+      <div ref={scrollRef} className="touch-none overflow-x-auto overflow-y-hidden rounded border border-white/10 bg-zinc-900/60">
+        <div
+          ref={trackRef}
+          className="relative select-none"
+          style={{ width: trackWidth, minWidth: '100%' }}
+          onPointerDown={onTrackPointerDown}
+          onPointerMove={onTrackPointerMove}
+          onPointerUp={onTrackPointerUp}
+          onPointerCancel={onTrackPointerUp}
+        >
+          <div className="relative h-5 border-b border-white/10">
+            {Array.from({ length: tickCount }, (_, i) => i * interval).map((t) => (
+              <div key={t} className="absolute top-0 h-full border-l border-white/10" style={{ left: t * pxPerSec }}>
+                <span className="ml-1 text-[10px] text-zinc-500 tabular-nums">{formatClock(t)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative h-11 cursor-text">
+            {words.map((word, i) => {
+              const left = word.start * pxPerSec;
+              const width = Math.max(6, (word.end - word.start) * pxPerSec);
+              const selected = selectedIndex === i;
+              return (
+                <div
+                  key={i}
+                  onPointerDown={(e) => onWordPointerDown(e, i, 'move')}
+                  onPointerMove={onWordPointerMove}
+                  onPointerUp={onWordPointerUp}
+                  onPointerCancel={onWordPointerUp}
+                  title={word.text}
+                  className={`absolute top-1 flex h-9 cursor-grab items-center overflow-hidden rounded border px-1.5 text-xs text-white select-none active:cursor-grabbing ${
+                    selected ? 'border-accent bg-accent/40' : 'border-white/20 bg-white/10 hover:bg-white/15'
+                  }`}
+                  style={{ left, width }}
+                >
+                  <span
+                    onPointerDown={(e) => onWordPointerDown(e, i, 'resize-start')}
+                    onPointerMove={onWordPointerMove}
+                    onPointerUp={onWordPointerUp}
+                    onPointerCancel={onWordPointerUp}
+                    className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize"
+                  />
+                  <span className="truncate">{word.text}</span>
+                  <span
+                    onPointerDown={(e) => onWordPointerDown(e, i, 'resize-end')}
+                    onPointerMove={onWordPointerMove}
+                    onPointerUp={onWordPointerUp}
+                    onPointerCancel={onWordPointerUp}
+                    className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize"
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute top-0 bottom-0 w-px bg-accent"
+            style={{ left: currentTime * pxPerSec }}
+          >
+            <div className="absolute -top-0.5 -left-1 h-2 w-2 rounded-full bg-accent" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

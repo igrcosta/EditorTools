@@ -1,5 +1,6 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { CAPTION_SCALE_MAX, CAPTION_SCALE_MIN } from '@editools/shared';
+import { outlineShadow, withAlpha, type PreviewStyle } from './previewStyles';
 
 interface Props {
   videoUrl: string;
@@ -9,13 +10,16 @@ interface Props {
   onPositionChange: (x: number, y: number) => void;
   onScaleChange: (scale: number) => void;
   sampleText: string;
+  previewStyle: PreviewStyle;
   disabled?: boolean;
 }
 
 /**
- * Video preview with a draggable box standing in for the caption: drag it to
- * set where captions sit, resize with the "Size" slider. Position also has
- * plain range-input fallbacks below the frame for keyboard/screen-reader use.
+ * Video preview with the actual selected template rendered live on top — not a placeholder box.
+ * Drag it to set where captions sit, resize with the "Size" slider. Position also has plain
+ * range-input fallbacks below the frame for keyboard/screen-reader use. It's still a CSS
+ * approximation of the real burned-in render (which is the .ass file libass draws), but it's the
+ * chosen font/colors/outline/shadow/background/animation, not a generic stand-in.
  */
 export function CaptionFrame({
   videoUrl,
@@ -25,6 +29,7 @@ export function CaptionFrame({
   onPositionChange,
   onScaleChange,
   sampleText,
+  previewStyle: style,
   disabled,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -54,10 +59,6 @@ export function CaptionFrame({
     dragging.current = false;
   };
 
-  // Purely a visual stand-in: a mock caption box, not the real render (that depends on the
-  // chosen preset's own font/weight/outline, applied at render time).
-  const boxWidth = 44 * scale;
-
   return (
     <div className="space-y-3">
       <div
@@ -77,12 +78,27 @@ export function CaptionFrame({
         />
         <div
           aria-hidden
-          className="absolute flex -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center rounded border-2 border-dashed border-accent bg-black/40 px-2 py-1 text-center font-semibold text-white shadow-[0_0_0_9999px_rgba(0,0,0,0.15)]"
+          className="absolute max-w-[85%] -translate-x-1/2 -translate-y-1/2 cursor-move text-center leading-tight whitespace-pre-wrap outline-1 outline-dashed outline-white/30 outline-offset-4"
           style={{
             left: `${positionX * 100}%`,
             top: `${positionY * 100}%`,
-            width: `${boxWidth}%`,
-            fontSize: `${0.55 * scale}rem`,
+            fontFamily: style.fontFamily,
+            fontSize: `${0.85 * scale}rem`,
+            fontWeight: style.weight,
+            fontStyle: style.italic ? 'italic' : undefined,
+            color: style.color,
+            textShadow: style.outlineColor ? outlineShadow(style.outlineColor) : undefined,
+            filter: style.shadow ? 'drop-shadow(2px 3px 2px rgba(0,0,0,0.7))' : undefined,
+            backgroundColor: style.background ? withAlpha(style.background.color, style.background.opacity) : undefined,
+            padding: style.background ? '0.2em 0.5em' : undefined,
+            borderRadius: style.background ? '0.25em' : undefined,
+            animation:
+              style.highlight || style.animation
+                ? style.highlight
+                  ? 'caption-preview-highlight 1500ms steps(1) infinite'
+                  : `caption-preview-${style.animation} 1800ms ease-out infinite`
+                : undefined,
+            ...(style.highlight ? { ['--highlight-color' as string]: style.highlight } : {}),
           }}
         >
           {sampleText}

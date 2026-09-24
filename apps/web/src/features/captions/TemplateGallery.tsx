@@ -1,64 +1,6 @@
-import { CAPTION_PRESETS, type CaptionAnimation, type CaptionPreset, type CustomCaptionStyle } from '@editools/shared';
+import { CAPTION_PRESETS, type CaptionPreset } from '@editools/shared';
 import type { CustomTemplate } from './customTemplates';
-
-interface PreviewStyle {
-  fontFamily: string;
-  fontSize: string;
-  weight: number;
-  color: string;
-  outlineColor: string | null;
-  shadow: boolean;
-  boxed?: boolean;
-  highlight?: string;
-  animation?: Exclude<CaptionAnimation, 'none'>;
-}
-
-/**
- * Visual approximation only, for the picker — mirrors apps/server/src/media/captions.ts's
- * PRESETS table (the actual render styles) closely enough to recognize each look at a glance.
- */
-const PRESET_PREVIEW_STYLES: Record<CaptionPreset, PreviewStyle> = {
-  clean: { fontFamily: 'inherit', fontSize: '0.8rem', weight: 400, color: '#fff', outlineColor: '#000', shadow: false },
-  karaoke: {
-    fontFamily: 'inherit',
-    fontSize: '0.85rem',
-    weight: 700,
-    color: '#fff',
-    outlineColor: '#000',
-    shadow: false,
-    highlight: '#9146ff',
-    animation: 'bounce',
-  },
-  boxed: { fontFamily: 'inherit', fontSize: '0.78rem', weight: 400, color: '#fff', outlineColor: '#000', shadow: false, boxed: true },
-  minimal: { fontFamily: 'inherit', fontSize: '0.65rem', weight: 400, color: '#fff', outlineColor: '#000', shadow: false },
-  bold: { fontFamily: 'inherit', fontSize: '1rem', weight: 700, color: '#fff', outlineColor: '#000', shadow: false },
-  outline: { fontFamily: 'inherit', fontSize: '0.85rem', weight: 700, color: '#fff', outlineColor: '#9146ff', shadow: false },
-};
-
-const CUSTOM_FONT_FAMILY: Record<CustomCaptionStyle['font'], string> = {
-  anton: 'Anton',
-  'bebas-neue': "'Bebas Neue'",
-  poppins: 'Poppins',
-  'archivo-black': "'Archivo Black'",
-  'luckiest-guy': "'Luckiest Guy'",
-  bangers: 'Bangers',
-};
-
-function customPreviewStyle(style: CustomCaptionStyle): PreviewStyle {
-  return {
-    fontFamily: CUSTOM_FONT_FAMILY[style.font],
-    fontSize: '0.85rem',
-    weight: 700,
-    color: `#${style.primaryColorRgb}`,
-    outlineColor: style.outline ? `#${style.outlineColorRgb}` : null,
-    shadow: style.shadow,
-    animation: style.animation === 'none' ? undefined : style.animation,
-  };
-}
-
-function outlineShadow(color: string): string {
-  return [-1, 1].flatMap((x) => [-1, 1].map((y) => `${x}px ${y}px 0 ${color}`)).join(', ');
-}
+import { customPreviewStyle, outlineShadow, PRESET_PREVIEW_STYLES, withAlpha, type PreviewStyle } from './previewStyles';
 
 /** A single word, small enough to read in a compact card. */
 const CARD_SAMPLE = 'LIKE';
@@ -72,12 +14,13 @@ function Preview({ style }: { style: PreviewStyle }) {
           fontFamily: style.fontFamily,
           fontSize: '0.7rem',
           fontWeight: style.weight,
+          fontStyle: style.italic ? 'italic' : undefined,
           color: style.color,
           textShadow: style.outlineColor ? outlineShadow(style.outlineColor) : undefined,
           filter: style.shadow ? 'drop-shadow(1px 1.5px 1px rgba(0,0,0,0.7))' : undefined,
-          backgroundColor: style.boxed ? 'rgba(0,0,0,0.7)' : undefined,
-          padding: style.boxed ? '1px 4px' : undefined,
-          borderRadius: style.boxed ? '3px' : undefined,
+          backgroundColor: style.background ? withAlpha(style.background.color, style.background.opacity) : undefined,
+          padding: style.background ? '1px 4px' : undefined,
+          borderRadius: style.background ? '3px' : undefined,
         }}
       >
         <span

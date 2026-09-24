@@ -22,6 +22,12 @@
     "outline": "Accent outline"
   },
   "positionTitle": "Position & size",
+  "timeline": {
+    "play": "Play",
+    "pause": "Pause",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
+  },
   "samplePlaceholder": "Your captions",
   "generate": "Generate captions",
   "generateAgain": "Generate again",
