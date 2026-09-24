@@ -131,7 +131,15 @@ export const CAPTION_FONTS = [
 ] as const;
 export type CaptionFont = (typeof CAPTION_FONTS)[number];
 
-/** A user-built template: replaces a fixed preset with the caller's own font/colors/outline/shadow. */
+/**
+ * Per-word reveal animation, played once at the moment each word is spoken — the alternative to
+ * a static caption line. `bounce` pops the word in past full size then settles (the "MrBeast/
+ * CapCut" look); `fade` is a plain opacity ramp.
+ */
+export const CAPTION_ANIMATIONS = ['none', 'fade', 'bounce'] as const;
+export type CaptionAnimation = (typeof CAPTION_ANIMATIONS)[number];
+
+/** A user-built template: replaces a fixed preset with the caller's own font/colors/outline/shadow/animation. */
 export interface CustomCaptionStyle {
   font: CaptionFont;
   /** Plain RGB hex, no "#" (e.g. "FFFFFF"). */
@@ -139,6 +147,7 @@ export interface CustomCaptionStyle {
   outline: boolean;
   outlineColorRgb: string;
   shadow: boolean;
+  animation: CaptionAnimation;
 }
 
 /** One transcribed (or user-edited) word with its own timing, in seconds. */

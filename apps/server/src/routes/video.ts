@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  CAPTION_ANIMATIONS,
   CAPTION_FONTS,
   CAPTION_POSITION_DEFAULT,
   CAPTION_POSITION_Y_DEFAULT,
@@ -54,6 +55,7 @@ const customCaptionStyleSchema = z.object({
   outline: z.boolean(),
   outlineColorRgb: hexColor,
   shadow: z.boolean(),
+  animation: z.enum(CAPTION_ANIMATIONS),
 });
 
 /** Multipart fields are always strings — an unset custom template travels as an absent field. */

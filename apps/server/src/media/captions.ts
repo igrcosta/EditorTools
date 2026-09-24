@@ -1,4 +1,4 @@
-import type { CaptionFont, CaptionPreset, CustomCaptionStyle } from '@editools/shared';
+import type { CaptionAnimation, CaptionFont, CaptionPreset, CustomCaptionStyle } from '@editools/shared';
 import type { TranscriptWord } from './whisper';
 
 export interface WordChunk {
@@ -61,6 +61,8 @@ interface PresetStyle {
   borderStyle: 1 | 3;
   outline: number;
   shadow: number;
+  /** 'none' for every built-in preset — only a custom template can turn this on. */
+  animation: CaptionAnimation;
 }
 
 /** Fixed, server-defined visual styles — not user-customizable in v1. Where/how big they sit is a separate, free-form position + scale (see buildAssTrack). */
@@ -75,6 +77,7 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 1,
     outline: 2,
     shadow: 1,
+    animation: 'none',
   },
   karaoke: {
     fontName: 'Arial',
@@ -87,6 +90,8 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 1,
     outline: 2,
     shadow: 1,
+    // The one built-in preset that plays a per-word reveal — it's already the "active word" style.
+    animation: 'bounce',
   },
   boxed: {
     fontName: 'Arial',
@@ -98,6 +103,7 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 3,
     outline: 4,
     shadow: 0,
+    animation: 'none',
   },
   minimal: {
     fontName: 'Arial',
@@ -109,6 +115,7 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 1,
     outline: 1,
     shadow: 1,
+    animation: 'none',
   },
   bold: {
     fontName: 'Arial',
@@ -120,6 +127,7 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 1,
     outline: 4,
     shadow: 1,
+    animation: 'none',
   },
   outline: {
     fontName: 'Arial',
@@ -132,6 +140,7 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     borderStyle: 1,
     outline: 3,
     shadow: 0,
+    animation: 'none',
   },
 };
 
@@ -163,7 +172,25 @@ function resolveStyle(preset: CaptionPreset, custom: CustomCaptionStyle | null):
     borderStyle: 1,
     outline: custom.outline ? 2.5 : 0,
     shadow: custom.shadow ? 1.5 : 0,
+    animation: custom.animation,
   };
+}
+
+/**
+ * Inline override tags for the word that's actively being spoken, played once from that word's
+ * own Start (all `\t()` times are relative to it) — libass, not CSS, since this has to exist in
+ * the burned-in video, not just the browser preview.
+ */
+function animationTags(animation: CaptionAnimation): string {
+  switch (animation) {
+    case 'bounce':
+      // 60% → overshoot to 115% by 80ms → settle to 100% by 150ms: a pop, not a linear grow.
+      return '\\fscx60\\fscy60\\t(0,80,\\fscx115\\fscy115)\\t(80,150,\\fscx100\\fscy100)';
+    case 'fade':
+      return '\\alpha&HFF&\\t(0,150,\\alpha&H00&)';
+    default:
+      return '';
+  }
 }
 
 /** RGB hex ("FFFFFF") → the BGR byte order ASS colors use. */
@@ -201,11 +228,12 @@ function dialogueLine(start: number, end: number, text: string): string {
 }
 
 /**
- * Builds a complete .ass subtitle file for the given preset + position. The
- * karaoke preset emits one Dialogue line per word (each spanning that word's
- * own timestamps, with only that word color-overridden) instead of using
- * ASS's \k karaoke sweep tag — deterministic string output, no reliance on a
- * particular libass version's karaoke rendering.
+ * Builds a complete .ass subtitle file for the given preset + position. A style with a
+ * per-word highlight and/or a reveal animation emits one Dialogue line per word (each spanning
+ * that word's own timestamps, with only that word color/scale/alpha-overridden) instead of
+ * using ASS's \k karaoke sweep tag — deterministic string output, no reliance on a particular
+ * libass version's karaoke rendering, and it's the same mechanism a `\t()` animation needs
+ * anyway (it has to be scoped to one word's own Start).
  */
 export function buildAssTrack(
   words: TranscriptWord[],
@@ -259,13 +287,15 @@ export function buildAssTrack(
   ].join('\n');
 
   const lines: string[] = [];
+  const perWord = style.highlightColorRgb !== null || style.animation !== 'none';
   for (const chunk of groupWords(words)) {
-    if (style.highlightColorRgb) {
-      const highlight = assInlineColor(style.highlightColorRgb);
+    if (perWord) {
+      const activeTags =
+        animationTags(style.animation) + (style.highlightColorRgb ? `\\c${assInlineColor(style.highlightColorRgb)}` : '');
       chunk.words.forEach((word, i) => {
         const before = chunk.words.slice(0, i).map((w) => escapeAssText(w.text));
         const after = chunk.words.slice(i + 1).map((w) => escapeAssText(w.text));
-        const active = `{\\c${highlight}}${escapeAssText(word.text)}{\\c}`;
+        const active = `{${activeTags}}${escapeAssText(word.text)}{\\r}`;
         lines.push(dialogueLine(word.start, word.end, posTag + [...before, active, ...after].join(' ')));
       });
     } else {

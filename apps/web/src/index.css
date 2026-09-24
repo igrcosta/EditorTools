@@ -104,6 +104,33 @@ h1 {
   }
 }
 
+/* TemplateGallery + CustomTemplateEditor previews — a rough approximation of the real per-word
+   \t() animation authored in captions.ts's buildAssTrack (that one is what actually ships). */
+@keyframes caption-preview-bounce {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  20% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  35%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes caption-preview-fade {
+  0% {
+    opacity: 0;
+  }
+  20%,
+  100% {
+    opacity: 1;
+  }
+}
+
 @keyframes wave-skeleton-pulse {
   0%,
   100% {

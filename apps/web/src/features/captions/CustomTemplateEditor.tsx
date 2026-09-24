@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { CAPTION_FONTS, type CaptionFont, type CustomCaptionStyle } from '@editools/shared';
+import { CAPTION_ANIMATIONS, CAPTION_FONTS, type CaptionAnimation, type CaptionFont, type CustomCaptionStyle } from '@editools/shared';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+
+const ANIMATION_LABEL: Record<CaptionAnimation, string> = {
+  none: 'Static',
+  fade: 'Fade in',
+  bounce: 'Bounce',
+};
 
 const FONT_LABEL: Record<CaptionFont, string> = {
   anton: 'Anton',
@@ -38,8 +44,9 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
   const [outline, setOutline] = useState(true);
   const [outlineColorRgb, setOutlineColorRgb] = useState('000000');
   const [shadow, setShadow] = useState(false);
+  const [animation, setAnimation] = useState<CaptionAnimation>('bounce');
 
-  const style: CustomCaptionStyle = { font, primaryColorRgb, outline, outlineColorRgb, shadow };
+  const style: CustomCaptionStyle = { font, primaryColorRgb, outline, outlineColorRgb, shadow, animation };
 
   const save = () => {
     const trimmed = name.trim();
@@ -51,12 +58,13 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
     <div className="space-y-4 rounded-md border border-white/10 bg-surface p-4">
       <div className="flex aspect-video items-center justify-center rounded bg-zinc-800">
         <span
-          className="px-3 text-center text-2xl leading-tight"
+          className="inline-block px-3 text-center text-2xl leading-tight"
           style={{
             fontFamily: FONT_FAMILY[font],
             color: `#${primaryColorRgb}`,
             textShadow: outline ? outlineShadow(`#${outlineColorRgb}`) : undefined,
             filter: shadow ? 'drop-shadow(2px 3px 2px rgba(0,0,0,0.7))' : undefined,
+            animation: animation === 'none' ? undefined : `caption-preview-${animation} 1800ms ease-out infinite`,
           }}
         >
           Like this
@@ -115,6 +123,26 @@ export function CustomTemplateEditor({ onSave, onCancel }: Props) {
           <input type="checkbox" checked={shadow} onChange={(e) => setShadow(e.target.checked)} className="accent-accent" />
           Shadow
         </label>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Word animation — plays exactly when each word is spoken
+        </p>
+        <div className="flex gap-2">
+          {CAPTION_ANIMATIONS.map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAnimation(a)}
+              className={`flex-1 cursor-pointer rounded-md border px-3 py-2 text-sm transition-colors ${
+                animation === a ? 'border-accent text-accent-text' : 'border-white/10 text-zinc-400 hover:border-white/25'
+              }`}
+            >
+              {ANIMATION_LABEL[a]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2">
