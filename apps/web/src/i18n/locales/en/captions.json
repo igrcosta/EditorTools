@@ -12,7 +12,7 @@
   "editTitle": "Edit the transcript",
   "editHint": "Fix any words the transcription got wrong, adjust timing (in seconds), or remove a word.",
   "deleteWord": "Remove word",
-  "presetTitle": "Caption style",
+  "templateTitle": "Template",
   "preset": {
     "clean": "Clean",
     "karaoke": "Karaoke highlight",
@@ -21,18 +21,8 @@
     "bold": "Bold",
     "outline": "Accent outline"
   },
-  "positionTitle": "Position",
-  "position": {
-    "top-left": "Top left",
-    "top-center": "Top center",
-    "top-right": "Top right",
-    "middle-left": "Middle left",
-    "middle-center": "Middle center",
-    "middle-right": "Middle right",
-    "bottom-left": "Bottom left",
-    "bottom-center": "Bottom center",
-    "bottom-right": "Bottom right"
-  },
+  "positionTitle": "Position & size",
+  "samplePlaceholder": "Your captions",
   "generate": "Generate captions",
   "generateAgain": "Generate again",
   "uploading": "Reading video…",

@@ -84,4 +84,6 @@ export const config = {
   whisperPath: process.env.WHISPER_PATH ?? (vendorDir ? path.join(vendorDir, 'whisper', exe('whisper-cli')) : null),
   /** Transcription is CPU-bound and roughly real-time or slower; cap the clip length. */
   maxCaptionSeconds: Number(process.env.MAX_CAPTION_SECONDS ?? 1800),
+  /** Bundled OFL font files (see captions.ts's CAPTION_FONT_FILES) for custom caption templates. */
+  fontsDir: process.env.FONTS_DIR ?? (vendorDir ? path.join(vendorDir, 'fonts') : null),
 } as const;

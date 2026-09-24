@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CAPTION_POSITIONS, CAPTION_PRESETS, type CaptionPosition, type CaptionPreset, type CaptionWord } from '@editools/shared';
+import {
+  CAPTION_POSITION_DEFAULT,
+  CAPTION_POSITION_Y_DEFAULT,
+  CAPTION_SCALE_DEFAULT,
+  type CaptionPreset,
+  type CaptionWord,
+  type CustomCaptionStyle,
+} from '@editools/shared';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { DesktopOnlyNotice } from '../../components/DesktopOnlyNotice';
@@ -8,21 +15,19 @@ import { Dropzone } from '../../components/Dropzone';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { JobStatus } from '../../components/JobStatus';
 import { PageHeader } from '../../components/PageHeader';
-import { Pills } from '../../components/Pills';
 import { Spinner } from '../../components/Spinner';
 import { api } from '../../lib/api';
 import { formatBytes } from '../../lib/format';
 import { useFeatures } from '../../lib/useFeatures';
 import { useJobRunner } from '../../lib/useJobRunner';
 import { useObjectUrl } from '../../lib/useObjectUrl';
+import { CaptionFrame } from './CaptionFrame';
+import { CustomTemplateEditor } from './CustomTemplateEditor';
+import { deleteCustomTemplate, loadCustomTemplates, saveCustomTemplate, type CustomTemplate } from './customTemplates';
+import { TemplateGallery } from './TemplateGallery';
 
 const ACCEPT = 'video/mp4,video/quicktime,video/webm,video/x-matroska';
-
-const POSITION_GRID: CaptionPosition[][] = [
-  ['top-left', 'top-center', 'top-right'],
-  ['middle-left', 'middle-center', 'middle-right'],
-  ['bottom-left', 'bottom-center', 'bottom-right'],
-];
+const DEFAULT_KEY: CaptionPreset = 'clean';
 
 interface TranscribeResult {
   words: CaptionWord[];
@@ -37,14 +42,28 @@ export function CaptionsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [words, setWords] = useState<CaptionWord[] | null>(null);
   const [parsing, setParsing] = useState(false);
-  const [preset, setPreset] = useState<CaptionPreset>('clean');
-  const [position, setPosition] = useState<CaptionPosition>('bottom-center');
+  const [selectedKey, setSelectedKey] = useState<string>(DEFAULT_KEY);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [positionX, setPositionX] = useState(CAPTION_POSITION_DEFAULT);
+  const [positionY, setPositionY] = useState(CAPTION_POSITION_Y_DEFAULT);
+  const [scale, setScale] = useState(CAPTION_SCALE_DEFAULT);
   const localUrl = useObjectUrl(file);
+
+  useEffect(() => {
+    setCustomTemplates(loadCustomTemplates());
+  }, []);
 
   const wordCount = transcribeRunner.job?.meta?.captionWordCount;
   const language = transcribeRunner.job?.meta?.captionLanguage;
   const renderBusy = renderRunner.starting || renderRunner.jobActive;
   const renderDone = renderRunner.job?.status === 'done';
+
+  const selectedCustom = selectedKey.startsWith('custom:')
+    ? (customTemplates.find((tpl) => `custom:${tpl.id}` === selectedKey) ?? null)
+    : null;
+  const preset: CaptionPreset = selectedCustom ? DEFAULT_KEY : (selectedKey as CaptionPreset);
+  const customStyle: CustomCaptionStyle | null = selectedCustom ? selectedCustom.style : null;
 
   // The transcribe job's "file" is words.json, not media — pull it in and switch to the editor.
   useEffect(() => {
@@ -76,8 +95,11 @@ export function CaptionsPage() {
   const onChangeFile = () => {
     setFile(null);
     setWords(null);
-    setPreset('clean');
-    setPosition('bottom-center');
+    setSelectedKey(DEFAULT_KEY);
+    setCreatingTemplate(false);
+    setPositionX(CAPTION_POSITION_DEFAULT);
+    setPositionY(CAPTION_POSITION_Y_DEFAULT);
+    setScale(CAPTION_SCALE_DEFAULT);
     transcribeRunner.reset();
     renderRunner.reset();
   };
@@ -95,9 +117,25 @@ export function CaptionsPage() {
     const form = new FormData();
     form.append('words', JSON.stringify(words));
     form.append('preset', preset);
-    form.append('position', position);
+    if (customStyle) form.append('customStyle', JSON.stringify(customStyle));
+    form.append('positionX', String(positionX));
+    form.append('positionY', String(positionY));
+    form.append('scale', String(scale));
     form.append('file', file);
     void renderRunner.start('/api/video/captions/render', form);
+  };
+
+  const onSaveTemplate = (name: string, style: CustomCaptionStyle) => {
+    const next = saveCustomTemplate(name, style);
+    setCustomTemplates(next);
+    setSelectedKey(`custom:${next[next.length - 1].id}`);
+    setCreatingTemplate(false);
+  };
+
+  const onDeleteTemplate = (id: string) => {
+    const next = deleteCustomTemplate(id);
+    setCustomTemplates(next);
+    if (selectedKey === `custom:${id}`) setSelectedKey(DEFAULT_KEY);
   };
 
   const updateWord = (index: number, patch: Partial<CaptionWord>) => {
@@ -107,6 +145,8 @@ export function CaptionsPage() {
   const deleteWord = (index: number) => {
     setWords((prev) => (prev ? prev.filter((_, i) => i !== index) : prev));
   };
+
+  const sampleText = words && words.length > 0 ? words.slice(0, 3).map((w) => w.text).join(' ') : t('samplePlaceholder');
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -139,12 +179,11 @@ export function CaptionsPage() {
                 </button>
               </div>
 
-              {localUrl && !renderDone && (
-                <video src={localUrl} controls className="max-h-64 w-full rounded-md bg-black" />
-              )}
-
               {words === null ? (
                 <div className="space-y-3">
+                  {localUrl && (
+                    <video src={localUrl} controls className="max-h-64 w-full rounded-md bg-black" />
+                  )}
                   {transcribeRunner.errorCode && (
                     <ErrorMessage>
                       {t(`downloader:errors.${transcribeRunner.errorCode}`, t('downloader:errors.download_failed'))}
@@ -164,6 +203,42 @@ export function CaptionsPage() {
                 </div>
               ) : (
                 <>
+                  <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('templateTitle')}</p>
+                    {creatingTemplate ? (
+                      <CustomTemplateEditor onSave={onSaveTemplate} onCancel={() => setCreatingTemplate(false)} />
+                    ) : (
+                      <TemplateGallery
+                        customTemplates={customTemplates}
+                        selectedKey={selectedKey}
+                        onSelect={setSelectedKey}
+                        onCreateNew={() => setCreatingTemplate(true)}
+                        onDeleteCustom={onDeleteTemplate}
+                        disabled={renderBusy}
+                        label={(p) => t(`preset.${p}`)}
+                      />
+                    )}
+                  </div>
+
+                  {localUrl && !renderDone && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
+                      <CaptionFrame
+                        videoUrl={localUrl}
+                        positionX={positionX}
+                        positionY={positionY}
+                        scale={scale}
+                        onPositionChange={(x, y) => {
+                          setPositionX(x);
+                          setPositionY(y);
+                        }}
+                        onScaleChange={setScale}
+                        sampleText={sampleText}
+                        disabled={renderBusy}
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{t('editTitle')}</p>
@@ -210,33 +285,6 @@ export function CaptionsPage() {
                           >
                             &times;
                           </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('presetTitle')}</p>
-                    <Pills options={CAPTION_PRESETS} value={preset} onChange={setPreset} disabled={renderBusy} label={(p) => t(`preset.${p}`)} />
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
-                    <div className="mx-auto grid aspect-[9/16] w-32 grid-rows-3 gap-1 rounded-md border border-zinc-700 bg-zinc-900 p-1">
-                      {POSITION_GRID.map((row, ri) => (
-                        <div key={ri} className="grid grid-cols-3 gap-1">
-                          {row.map((pos) => (
-                            <button
-                              key={pos}
-                              type="button"
-                              onClick={() => setPosition(pos)}
-                              disabled={renderBusy}
-                              aria-label={t(`position.${pos}`)}
-                              className={`cursor-pointer rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                position === pos ? 'border-accent bg-accent/20' : 'border-zinc-700 hover:border-zinc-500'
-                              }`}
-                            />
-                          ))}
                         </div>
                       ))}
                     </div>

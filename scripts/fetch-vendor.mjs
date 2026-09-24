@@ -31,10 +31,36 @@ const MODELS = [
     dest: 'models/face_detection_yunet_2023mar.onnx',
   },
   {
-    // Whisper "base" multilingual weights, GGML format (OpenAI Whisper, MIT), for automatic captions.
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-    sha256: '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
-    dest: 'models/ggml-base.bin',
+    // Whisper "small" multilingual weights, GGML format (OpenAI Whisper, MIT), for automatic
+    // captions. Not "base": verified side-by-side on the same clip that small's word-level
+    // timestamps (from -ml 1 -sow, whisper.cpp's --dtw doesn't produce real alignment on this
+    // build) are visibly tighter — base merges distinct words into one timing span; small doesn't.
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
+    sha256: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
+    dest: 'models/ggml-small.bin',
+  },
+  // Custom caption template fonts (see apps/server/src/media/captions.ts's CAPTION_FONT_FILES).
+  // All OFL (SIL Open Font License) via the google/fonts repo — the only fonts a custom caption
+  // template can use, since libass needs an actual bundled file, not the user's system fonts.
+  {
+    url: 'https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf',
+    sha256: 'a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab',
+    dest: 'fonts/Anton-Regular.ttf',
+  },
+  {
+    url: 'https://raw.githubusercontent.com/google/fonts/main/ofl/bebasneue/BebasNeue-Regular.ttf',
+    sha256: '08e4623805102d819f58601e46e345648846075e363b2ceb23313c2d1c83ec73',
+    dest: 'fonts/BebasNeue-Regular.ttf',
+  },
+  {
+    url: 'https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf',
+    sha256: '983676516167748b74de6f4771fb384c664fd913acb8b471122ecacf5da5ea6c',
+    dest: 'fonts/Poppins-Bold.ttf',
+  },
+  {
+    url: 'https://raw.githubusercontent.com/google/fonts/main/ofl/archivoblack/ArchivoBlack-Regular.ttf',
+    sha256: 'dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180',
+    dest: 'fonts/ArchivoBlack-Regular.ttf',
   },
 ];
 

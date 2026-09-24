@@ -4,20 +4,13 @@
   "dropLabel": "Drop a video here or click to browse",
   "dropHint": "MP4, MOV or WebM — up to 10 minutes",
   "changeFile": "Change file",
-  "aspectTitle": "Output frame",
+  "aspectTitle": "Resolution",
   "aspect": {
-    "original": "Same as video",
-    "9:16": "9:16 vertical",
-    "1:1": "1:1 square",
-    "16:9": "16:9 wide"
+    "9:16": "Vertical",
+    "16:9": "Horizontal"
   },
   "zoomTitle": "Zoom",
-  "zoom": {
-    "1": "None",
-    "1.2": "1.2×",
-    "1.5": "1.5×",
-    "2": "2×"
-  },
+  "zoomLabel": "Drag toward the center for more zoom, toward the edge for less",
   "zoomHint": "Zoom crops into the frame and scales it back up, so a little softness is normal.",
   "smoothingTitle": "Camera smoothness",
   "smoothing": {

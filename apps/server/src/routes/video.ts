@@ -2,11 +2,18 @@ import { rm } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
-  CAPTION_POSITIONS,
+  CAPTION_FONTS,
+  CAPTION_POSITION_DEFAULT,
+  CAPTION_POSITION_Y_DEFAULT,
   CAPTION_PRESETS,
+  CAPTION_SCALE_DEFAULT,
+  CAPTION_SCALE_MAX,
+  CAPTION_SCALE_MIN,
   TRACK_ASPECTS,
   TRACK_SMOOTHING,
-  TRACK_ZOOMS,
+  TRACK_ZOOM_DEFAULT,
+  TRACK_ZOOM_MAX,
+  TRACK_ZOOM_MIN,
   type DownloadStarted,
 } from '@editools/shared';
 import { config } from '../config';
@@ -39,20 +46,51 @@ const captionWordsField = z.string().transform((raw, ctx) => {
   return result.data;
 });
 
+const hexColor = z.string().regex(/^[0-9A-Fa-f]{6}$/, 'expected a 6-digit hex color');
+
+const customCaptionStyleSchema = z.object({
+  font: z.enum(CAPTION_FONTS),
+  primaryColorRgb: hexColor,
+  outline: z.boolean(),
+  outlineColorRgb: hexColor,
+  shadow: z.boolean(),
+});
+
+/** Multipart fields are always strings — an unset custom template travels as an absent field. */
+const customStyleField = z
+  .string()
+  .optional()
+  .transform((raw, ctx) => {
+    if (!raw) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid customStyle JSON' });
+      return z.NEVER;
+    }
+    const result = customCaptionStyleSchema.safeParse(parsed);
+    if (!result.success) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid customStyle shape' });
+      return z.NEVER;
+    }
+    return result.data;
+  });
+
 const captionsRenderSchema = z.object({
   words: captionWordsField,
   preset: z.enum(CAPTION_PRESETS).default('clean'),
-  position: z.enum(CAPTION_POSITIONS).default('bottom-center'),
+  customStyle: customStyleField,
+  positionX: z.coerce.number().min(0).max(1).default(CAPTION_POSITION_DEFAULT),
+  positionY: z.coerce.number().min(0).max(1).default(CAPTION_POSITION_Y_DEFAULT),
+  scale: z.coerce.number().min(CAPTION_SCALE_MIN).max(CAPTION_SCALE_MAX).default(CAPTION_SCALE_DEFAULT),
 });
 
-const faceTrackSchema = z
-  .object({
-    aspect: z.enum(TRACK_ASPECTS).default('original'),
-    zoom: z.enum(TRACK_ZOOMS).default('1.2'),
-    smoothing: z.enum(TRACK_SMOOTHING).default('medium'),
-  })
-  // Same aspect and no zoom would be a crop the size of the frame — nothing to follow.
-  .refine((f) => !(f.aspect === 'original' && f.zoom === '1'), { message: 'nothing to track' });
+const faceTrackSchema = z.object({
+  aspect: z.enum(TRACK_ASPECTS).default('9:16'),
+  zoom: z.coerce.number().min(TRACK_ZOOM_MIN).max(TRACK_ZOOM_MAX).default(TRACK_ZOOM_DEFAULT),
+  smoothing: z.enum(TRACK_SMOOTHING).default('medium'),
+});
 
 export function registerVideoRoutes(app: FastifyInstance): void {
   app.post('/api/video/face-track', { bodyLimit: config.maxUploadBytes }, async (request, reply) => {
@@ -73,7 +111,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         faceTrackTask({
           inputPath: upload.inputPath,
           aspect,
-          zoom: Number(zoom),
+          zoom,
           smoothing,
           title: `${titleFrom(upload.originalName)} (face tracked)`,
         }),
@@ -134,13 +172,16 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
-      const { words, preset, position } = parsed.data;
+      const { words, preset, customStyle, positionX, positionY, scale } = parsed.data;
       const job = await createJob(
         renderCaptionsTask({
           inputPath: upload.inputPath,
           words,
           preset,
-          position,
+          customStyle,
+          positionX,
+          positionY,
+          scale,
           title: `${titleFrom(upload.originalName)} (captioned)`,
         }),
         tempDir,

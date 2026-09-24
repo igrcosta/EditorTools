@@ -1,13 +1,13 @@
-import { copyFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type {
   AudioFixOutput,
   BgOutput,
-  CaptionPosition,
   CaptionPreset,
   CaptionWord,
   ConvertFormat,
+  CustomCaptionStyle,
   LoudnessPreset,
   NoiseLevel,
   OutputFormat,
@@ -20,7 +20,7 @@ import type {
 } from '@editools/shared';
 import { config } from '../config';
 import { ISNET_SIZE, predictAlphaMask } from './background';
-import { buildAssTrack, normalizeWords } from './captions';
+import { buildAssTrack, CAPTION_FONT_FILES, normalizeWords } from './captions';
 import {
   aspectRatio,
   buildTrack,
@@ -602,7 +602,7 @@ export function faceTrackTask(req: {
 
         const { width, height, duration } = probe;
         const fps = Math.min(120, Math.max(1, probe.fps ?? 30));
-        const ratio = aspectRatio(req.aspect, width, height);
+        const ratio = aspectRatio(req.aspect);
         const outSize = cropWindow(width, height, ratio, 1);
         const crop = cropWindow(width, height, ratio, req.zoom);
         callbacks.onMeta?.({ inputWidth: width, inputHeight: height, outputWidth: outSize.w, outputHeight: outSize.h });
@@ -728,7 +728,7 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
         if (!probe?.hasVideo || !probe.duration) throw new Error('EDITOOLS_INVALID_FILE: no video stream');
         if (probe.duration > config.maxCaptionSeconds) throw new Error('EDITOOLS_TOO_LONG');
 
-        const model = modelPath('whisperBase');
+        const model = modelPath('whisperModel');
         if (!model) throw new Error('EDITOOLS_ASR_MODEL_MISSING: whisper model file is missing');
 
         // Extract a 16kHz mono WAV (whisper.cpp's expected input format).
@@ -772,7 +772,10 @@ export function renderCaptionsTask(req: {
   inputPath: string;
   words: CaptionWord[];
   preset: CaptionPreset;
-  position: CaptionPosition;
+  customStyle: CustomCaptionStyle | null;
+  positionX: number;
+  positionY: number;
+  scale: number;
   title?: string;
 }): JobTask {
   const outputName = 'output.mp4';
@@ -791,14 +794,41 @@ export function renderCaptionsTask(req: {
         if (words.length === 0) throw new Error('EDITOOLS_INVALID_FILE: no caption text');
 
         const assPath = path.join(tempDir, 'captions.ass');
-        await writeFile(assPath, buildAssTrack(words, req.preset, req.position, probe.width, probe.height), 'utf8');
+        await writeFile(
+          assPath,
+          buildAssTrack(
+            words,
+            req.preset,
+            req.customStyle,
+            req.positionX,
+            req.positionY,
+            req.scale,
+            probe.width,
+            probe.height,
+          ),
+          'utf8',
+        );
+
+        // A custom template's font is a bundled file, not something libass finds via the
+        // system font list — copy it into a relative "fonts" folder inside tempDir (relative,
+        // like the .ass path below, to dodge Windows drive-colon escaping in the filter graph)
+        // and point `fontsdir` at it.
+        let fontsFilterArg = '';
+        if (req.customStyle) {
+          const fontFile = CAPTION_FONT_FILES[req.customStyle.font].file;
+          if (!config.fontsDir) throw new Error('EDITOOLS_ASR_MODEL_MISSING: bundled caption fonts are missing');
+          const fontsSubdir = path.join(tempDir, 'fonts');
+          await mkdir(fontsSubdir, { recursive: true });
+          await copyFile(path.join(config.fontsDir, fontFile), path.join(fontsSubdir, fontFile));
+          fontsFilterArg = ':fontsdir=fonts';
+        }
 
         // Relative filename + cwd keep Windows drive colons out of the filter graph.
         await track(
           runFfmpeg(
             [
               '-i', req.inputPath,
-              '-vf', 'ass=captions.ass',
+              '-vf', `ass=captions.ass${fontsFilterArg}`,
               '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p',
               '-c:a', 'copy',
               '-movflags', '+faststart',

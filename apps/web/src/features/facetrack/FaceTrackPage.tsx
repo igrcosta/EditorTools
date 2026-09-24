@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next';
 import {
   TRACK_ASPECTS,
   TRACK_SMOOTHING,
-  TRACK_ZOOMS,
+  TRACK_ZOOM_DEFAULT,
   type TrackAspect,
   type TrackSmoothing,
-  type TrackZoom,
 } from '@editools/shared';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -21,6 +20,7 @@ import { formatBytes } from '../../lib/format';
 import { useFeatures } from '../../lib/useFeatures';
 import { useJobRunner } from '../../lib/useJobRunner';
 import { useObjectUrl } from '../../lib/useObjectUrl';
+import { ZoomFrame } from './ZoomFrame';
 
 const ACCEPT = 'video/mp4,video/quicktime,video/webm,video/x-matroska';
 
@@ -31,7 +31,7 @@ export function FaceTrackPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [aspect, setAspect] = useState<TrackAspect>('9:16');
-  const [zoom, setZoom] = useState<TrackZoom>('1');
+  const [zoom, setZoom] = useState(TRACK_ZOOM_DEFAULT);
   const [smoothing, setSmoothing] = useState<TrackSmoothing>('medium');
   const localUrl = useObjectUrl(file);
 
@@ -44,17 +44,11 @@ export function FaceTrackPage() {
     runner.reset();
   };
 
-  // Same frame with no zoom would have nothing to follow.
-  const pickAspect = (a: TrackAspect) => {
-    setAspect(a);
-    if (a === 'original' && zoom === '1') setZoom('1.2');
-  };
-
   const process = () => {
     if (!file) return;
     const form = new FormData();
     form.append('aspect', aspect);
-    form.append('zoom', zoom);
+    form.append('zoom', String(zoom));
     form.append('smoothing', smoothing);
     form.append('file', file);
     void runner.start('/api/video/face-track', form);
@@ -100,27 +94,41 @@ export function FaceTrackPage() {
                 </button>
               </div>
 
-              {localUrl && !done && (
-                <video src={localUrl} controls className="max-h-64 w-full rounded-md bg-black" />
-              )}
-
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('aspectTitle')}</p>
-                <Pills options={TRACK_ASPECTS} value={aspect} onChange={pickAspect} disabled={busy} label={(a) => t(`aspect.${a}`)} />
+                <div className="flex gap-2">
+                  {TRACK_ASPECTS.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setAspect(a)}
+                      disabled={busy}
+                      className={`flex-1 cursor-pointer rounded-md px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        aspect === a
+                          ? 'bg-accent text-white'
+                          : 'border border-white/10 text-zinc-400 hover:border-white/25'
+                      }`}
+                    >
+                      {t(`aspect.${a}`)}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('zoomTitle')}</p>
-                <Pills
-                  options={TRACK_ZOOMS}
-                  value={zoom}
-                  onChange={setZoom}
-                  disabled={busy}
-                  disabledOptions={aspect === 'original' ? ['1'] : []}
-                  label={(z) => t(`zoom.${z}`)}
-                />
-                <p className="mt-2 text-xs text-zinc-500">{t('zoomHint')}</p>
-              </div>
+              {localUrl && !done && (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('zoomTitle')}</p>
+                  <ZoomFrame
+                    videoUrl={localUrl}
+                    aspect={aspect}
+                    zoom={zoom}
+                    onZoomChange={setZoom}
+                    label={t('zoomLabel')}
+                    disabled={busy}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">{t('zoomHint')}</p>
+                </div>
+              )}
 
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('smoothingTitle')}</p>
@@ -128,7 +136,7 @@ export function FaceTrackPage() {
               </div>
 
               {!busy && !done && (
-                <Button className="w-full" onClick={process}>
+                <Button className="w-full !text-white" onClick={process}>
                   {t('process')}
                 </Button>
               )}

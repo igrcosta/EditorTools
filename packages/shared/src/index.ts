@@ -89,12 +89,13 @@ export type UpscaleOutput = (typeof UPSCALE_OUTPUTS)[number];
 // Face tracking
 // ---------------------------------------------------------------------------
 
-export const TRACK_ASPECTS = ['original', '9:16', '1:1', '16:9'] as const;
+export const TRACK_ASPECTS = ['9:16', '16:9'] as const;
 export type TrackAspect = (typeof TRACK_ASPECTS)[number];
 
-/** Zoom relative to the largest crop that fits the frame (strings: multipart fields are text). */
-export const TRACK_ZOOMS = ['1', '1.2', '1.5', '2'] as const;
-export type TrackZoom = (typeof TRACK_ZOOMS)[number];
+/** Zoom relative to the largest crop of the target aspect that fits the frame: 1 = that full crop, higher = tighter. */
+export const TRACK_ZOOM_MIN = 1;
+export const TRACK_ZOOM_MAX = 2.5;
+export const TRACK_ZOOM_DEFAULT = 1.3;
 
 export const TRACK_SMOOTHING = ['low', 'medium', 'high'] as const;
 export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
@@ -103,17 +104,35 @@ export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
 // Captions
 // ---------------------------------------------------------------------------
 
-/** Visual style only — where the captions sit on screen is a separate, independent choice (CAPTION_POSITIONS). */
+/** Visual style only — where the captions sit on screen and how big they are is a separate, independent choice. */
 export const CAPTION_PRESETS = ['clean', 'karaoke', 'boxed', 'minimal', 'bold', 'outline'] as const;
 export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
 
-/** 3x3 safe-zone grid, so vertical (9:16) captions can dodge a platform's own UI chrome. */
-export const CAPTION_POSITIONS = [
-  'top-left', 'top-center', 'top-right',
-  'middle-left', 'middle-center', 'middle-right',
-  'bottom-left', 'bottom-center', 'bottom-right',
-] as const;
-export type CaptionPosition = (typeof CAPTION_POSITIONS)[number];
+/**
+ * Free placement, set by dragging a box directly on the video preview: `positionX`/`positionY`
+ * are the caption's anchor as a 0–1 fraction of the frame, `scale` multiplies the preset's own
+ * font size. Replaces the old fixed 3×3 zone grid — continuous, so it's the same control for
+ * every aspect ratio instead of a preset-position picker.
+ */
+export const CAPTION_POSITION_DEFAULT = 0.5;
+export const CAPTION_POSITION_Y_DEFAULT = 0.88;
+export const CAPTION_SCALE_MIN = 0.5;
+export const CAPTION_SCALE_MAX = 2;
+export const CAPTION_SCALE_DEFAULT = 1;
+
+/** Curated set of bundled, license-cleared (OFL) fonts — the only ones a custom template can use. */
+export const CAPTION_FONTS = ['anton', 'bebas-neue', 'poppins', 'archivo-black'] as const;
+export type CaptionFont = (typeof CAPTION_FONTS)[number];
+
+/** A user-built template: replaces a fixed preset with the caller's own font/colors/outline/shadow. */
+export interface CustomCaptionStyle {
+  font: CaptionFont;
+  /** Plain RGB hex, no "#" (e.g. "FFFFFF"). */
+  primaryColorRgb: string;
+  outline: boolean;
+  outlineColorRgb: string;
+  shadow: boolean;
+}
 
 /** One transcribed (or user-edited) word with its own timing, in seconds. */
 export interface CaptionWord {

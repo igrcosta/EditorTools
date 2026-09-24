@@ -8,7 +8,9 @@ import { canLoadOnnxRuntime, onnxLoadError } from './onnx';
 export const MODEL_FILES = {
   isnet: 'isnet-general-use.onnx',
   yunet: 'face_detection_yunet_2023mar.onnx',
-  whisperBase: 'ggml-base.bin',
+  // "small" (not "base"): meaningfully tighter word-level timestamps for karaoke captions —
+  // base's -ml 1 -sow word splitting drifts noticeably, small's is visibly closer.
+  whisperModel: 'ggml-small.bin',
 } as const;
 
 export function modelPath(name: keyof typeof MODEL_FILES): string | null {
@@ -20,7 +22,7 @@ export function modelPath(name: keyof typeof MODEL_FILES): string | null {
 /** Runtime availability: master switch(es) + files on disk + (for onnx tools) a loadable runtime. */
 export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResponse> {
   const whisperMissing = config.whisperPath === null || !existsSync(config.whisperPath);
-  if (config.captionsEnabled && (whisperMissing || modelPath('whisperBase') === null)) {
+  if (config.captionsEnabled && (whisperMissing || modelPath('whisperModel') === null)) {
     log?.warn(
       { whisperPath: config.whisperPath, modelsDir: config.modelsDir },
       'captions unavailable: whisper binary or model not found on disk',
@@ -30,7 +32,7 @@ export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResp
     config.captionsEnabled &&
     config.whisperPath !== null &&
     existsSync(config.whisperPath) &&
-    modelPath('whisperBase') !== null;
+    modelPath('whisperModel') !== null;
 
   if (!config.imageToolsEnabled) {
     return { removeBackground: false, upscale: false, faceTracking: false, captions };

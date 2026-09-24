@@ -1,4 +1,4 @@
-import type { CaptionPosition, CaptionPreset } from '@editools/shared';
+import type { CaptionFont, CaptionPreset, CustomCaptionStyle } from '@editools/shared';
 import type { TranscriptWord } from './whisper';
 
 export interface WordChunk {
@@ -63,7 +63,7 @@ interface PresetStyle {
   shadow: number;
 }
 
-/** Fixed, server-defined visual styles — not user-customizable in v1. Where they sit is CAPTION_POSITIONS. */
+/** Fixed, server-defined visual styles — not user-customizable in v1. Where/how big they sit is a separate, free-form position + scale (see buildAssTrack). */
 const PRESETS: Record<CaptionPreset, PresetStyle> = {
   clean: {
     fontName: 'Arial',
@@ -135,28 +135,33 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
   },
 };
 
-interface PositionZone {
-  /** ASS numpad alignment: 1/2/3 bottom, 4/5/6 middle, 7/8/9 top (left/center/right). */
-  alignment: number;
-  marginLRatio: number;
-  marginRRatio: number;
-  marginVRatio: number;
-}
-
-/** Independent of preset — lets vertical (9:16) captions dodge a platform's own UI chrome. */
-const POSITION_ZONES: Record<CaptionPosition, PositionZone> = {
-  'top-left': { alignment: 7, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.08 },
-  'top-center': { alignment: 8, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.08 },
-  'top-right': { alignment: 9, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.08 },
-  'middle-left': { alignment: 4, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0 },
-  'middle-center': { alignment: 5, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0 },
-  'middle-right': { alignment: 6, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0 },
-  // A more generous bottom margin than "clean" spacing calls for — the default 9:16 safe zone,
-  // clear of TikTok/Reels/Shorts' own caption and action-button chrome.
-  'bottom-left': { alignment: 1, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.12 },
-  'bottom-center': { alignment: 2, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.12 },
-  'bottom-right': { alignment: 3, marginLRatio: 0.06, marginRRatio: 0.06, marginVRatio: 0.12 },
+/**
+ * Custom templates (see CustomCaptionStyle): the only fonts a template can use, since libass
+ * needs the actual font file — not whatever happens to be installed on the user's system. Each
+ * maps to its embedded font-family name (the ASS `Fontname` field) and the bundled file libass
+ * resolves it from via `fontsdir` (renderCaptionsTask copies it into the ffmpeg working dir).
+ */
+export const CAPTION_FONT_FILES: Record<CaptionFont, { family: string; file: string }> = {
+  anton: { family: 'Anton', file: 'Anton-Regular.ttf' },
+  'bebas-neue': { family: 'Bebas Neue', file: 'BebasNeue-Regular.ttf' },
+  poppins: { family: 'Poppins', file: 'Poppins-Bold.ttf' },
+  'archivo-black': { family: 'Archivo Black', file: 'ArchivoBlack-Regular.ttf' },
 };
+
+function resolveStyle(preset: CaptionPreset, custom: CustomCaptionStyle | null): PresetStyle {
+  if (!custom) return PRESETS[preset];
+  return {
+    fontName: CAPTION_FONT_FILES[custom.font].family,
+    fontSizeRatio: 0.05,
+    primaryColorRgb: custom.primaryColorRgb,
+    outlineColorRgb: custom.outlineColorRgb,
+    highlightColorRgb: null,
+    bold: true,
+    borderStyle: 1,
+    outline: custom.outline ? 2.5 : 0,
+    shadow: custom.shadow ? 1.5 : 0,
+  };
+}
 
 /** RGB hex ("FFFFFF") → the BGR byte order ASS colors use. */
 function toBgr(rgbHex: string): string {
@@ -202,17 +207,20 @@ function dialogueLine(start: number, end: number, text: string): string {
 export function buildAssTrack(
   words: TranscriptWord[],
   preset: CaptionPreset,
-  position: CaptionPosition,
+  customStyle: CustomCaptionStyle | null,
+  positionX: number,
+  positionY: number,
+  scale: number,
   videoWidth: number,
   videoHeight: number,
 ): string {
-  const style = PRESETS[preset];
-  const zone = POSITION_ZONES[position];
-  const fontSize = Math.max(12, Math.round(videoHeight * style.fontSizeRatio));
-  const marginL = Math.max(0, Math.round(videoWidth * zone.marginLRatio));
-  const marginR = Math.max(0, Math.round(videoWidth * zone.marginRRatio));
-  const marginV = Math.max(0, Math.round(videoHeight * zone.marginVRatio));
+  const style = resolveStyle(preset, customStyle);
+  const fontSize = Math.max(12, Math.round(videoHeight * style.fontSizeRatio * scale));
   const backColor = style.borderStyle === 3 ? assStyleColor('000000', '80') : assStyleColor('000000', '00');
+  // Free placement (dragged on the video preview) beats a fixed zone grid — \pos anchors the
+  // text's own center at an exact pixel, so alignment 5 (middle-center) is always correct here
+  // regardless of where positionX/positionY put it; margins are meaningless once \pos is used.
+  const posTag = `{\\pos(${Math.round(videoWidth * positionX)},${Math.round(videoHeight * positionY)})}`;
 
   const header = [
     '[Script Info]',
@@ -236,10 +244,10 @@ export function buildAssTrack(
       style.borderStyle,
       style.outline,
       style.shadow,
-      zone.alignment,
-      marginL,
-      marginR,
-      marginV,
+      5,
+      0,
+      0,
+      0,
       1,
     ].join(','),
     '',
@@ -255,11 +263,11 @@ export function buildAssTrack(
         const before = chunk.words.slice(0, i).map((w) => escapeAssText(w.text));
         const after = chunk.words.slice(i + 1).map((w) => escapeAssText(w.text));
         const active = `{\\c${highlight}}${escapeAssText(word.text)}{\\c}`;
-        lines.push(dialogueLine(word.start, word.end, [...before, active, ...after].join(' ')));
+        lines.push(dialogueLine(word.start, word.end, posTag + [...before, active, ...after].join(' ')));
       });
     } else {
       const text = escapeAssText(chunk.words.map((w) => w.text).join(' '));
-      lines.push(dialogueLine(chunk.start, chunk.end, text));
+      lines.push(dialogueLine(chunk.start, chunk.end, posTag + text));
     }
   }
 

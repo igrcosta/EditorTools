@@ -10,6 +10,30 @@
   font-display: swap;
 }
 
+/* Custom caption template fonts — mirrors apps/server/src/media/captions.ts's CAPTION_FONT_FILES
+   (same 4 files, same family names) so the browser preview matches the actual burned-in render. */
+@font-face {
+  font-family: 'Anton';
+  src: url('/fonts/captions/Anton-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/fonts/captions/BebasNeue-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/captions/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/fonts/captions/ArchivoBlack-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
 @theme {
   --color-accent: #9146ff;
   --color-accent-strong: #7a2df2;
@@ -56,6 +80,18 @@ h1 {
 
 .progress-indeterminate {
   animation: indeterminate-slide 1.2s ease-in-out infinite;
+}
+
+/** Karaoke preset preview in TemplateGallery: one word "on" (--highlight-color) at a time. */
+@keyframes caption-preview-highlight {
+  0%,
+  33.33% {
+    color: var(--highlight-color);
+  }
+  33.34%,
+  100% {
+    color: #fff;
+  }
 }
 
 @keyframes wave-skeleton-pulse {

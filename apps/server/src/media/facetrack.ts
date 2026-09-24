@@ -116,16 +116,16 @@ export function pickPrimary(faces: FaceBox[], previous: FaceBox | null): FaceBox
   return nearest.w * nearest.h * 1.6 >= largest.w * largest.h ? nearest : largest;
 }
 
-export function aspectRatio(aspect: TrackAspect, width: number, height: number): number {
+export function aspectRatio(aspect: TrackAspect): number {
   switch (aspect) {
     case '9:16':
       return 9 / 16;
-    case '1:1':
-      return 1;
     case '16:9':
       return 16 / 9;
-    default:
-      return width / height;
+    default: {
+      const exhaustive: never = aspect;
+      throw new Error(`EDITOOLS_INVALID_FILE: unknown aspect ${String(exhaustive)}`);
+    }
   }
 }
 
