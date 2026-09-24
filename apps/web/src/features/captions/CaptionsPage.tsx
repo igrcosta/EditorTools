@@ -21,6 +21,7 @@ import { formatBytes } from '../../lib/format';
 import { useFeatures } from '../../lib/useFeatures';
 import { useJobRunner } from '../../lib/useJobRunner';
 import { useObjectUrl } from '../../lib/useObjectUrl';
+import { useVideoPlayback } from '../../lib/useVideoPlayback';
 import { CaptionFrame } from './CaptionFrame';
 import { CustomTemplateEditor } from './CustomTemplateEditor';
 import { deleteCustomTemplate, loadCustomTemplates, saveCustomTemplate, type CustomTemplate } from './customTemplates';
@@ -29,7 +30,7 @@ import { TemplateGallery } from './TemplateGallery';
 import { Timeline } from './Timeline';
 
 const ACCEPT = 'video/mp4,video/quicktime,video/webm,video/x-matroska';
-const DEFAULT_KEY: CaptionPreset = 'clean';
+const DEFAULT_KEY: CaptionPreset = 'karaoke';
 
 interface TranscribeResult {
   words: CaptionWord[];
@@ -52,6 +53,7 @@ export function CaptionsPage() {
   const [scale, setScale] = useState(CAPTION_SCALE_DEFAULT);
   const [selectedWord, setSelectedWord] = useState<number | null>(null);
   const localUrl = useObjectUrl(file);
+  const { videoRef, videoEl, currentTime, duration, playing } = useVideoPlayback();
 
   useEffect(() => {
     setCustomTemplates(loadCustomTemplates());
@@ -152,8 +154,6 @@ export function CaptionsPage() {
     setSelectedWord((prev) => (prev === null ? prev : prev === index ? null : prev > index ? prev - 1 : prev));
   };
 
-  const sampleText = words && words.length > 0 ? words.slice(0, 3).map((w) => w.text).join(' ') : t('samplePlaceholder');
-
   return (
     <div className="w-full space-y-6">
       {/* Title on the left, template picker on the right — same header-row pattern as Face Tracking. */}
@@ -232,25 +232,48 @@ export function CaptionsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Video + drag box on the left, word/timing editor beside it on the right — the
-                      editor stands alone (no empty left column) once there's no preview to show. */}
+                  {/* Stage + timeline on the left (one video, always in sync), word/timing editor
+                      beside it on the right — the editor stands alone (no empty left column) once
+                      there's no preview to show. */}
                   <div className={localUrl && !renderDone ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : ''}>
                     {localUrl && !renderDone && (
-                      <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
-                        <CaptionFrame
-                          videoUrl={localUrl}
-                          positionX={positionX}
-                          positionY={positionY}
-                          scale={scale}
-                          onPositionChange={(x, y) => {
-                            setPositionX(x);
-                            setPositionY(y);
-                          }}
-                          onScaleChange={setScale}
-                          sampleText={sampleText}
-                          previewStyle={previewStyle}
+                      <div className="space-y-3">
+                        <div>
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
+                          <CaptionFrame
+                            videoRef={videoRef}
+                            videoUrl={localUrl}
+                            words={words}
+                            currentTime={currentTime}
+                            positionX={positionX}
+                            positionY={positionY}
+                            scale={scale}
+                            onPositionChange={(x, y) => {
+                              setPositionX(x);
+                              setPositionY(y);
+                            }}
+                            onScaleChange={setScale}
+                            previewStyle={previewStyle}
+                            placeholder={t('captionsPlaceholder')}
+                            disabled={renderBusy}
+                          />
+                        </div>
+                        <Timeline
+                          videoEl={videoEl}
+                          currentTime={currentTime}
+                          duration={duration}
+                          playing={playing}
+                          words={words}
+                          selectedIndex={selectedWord}
+                          onSelect={setSelectedWord}
+                          onUpdateWord={updateWord}
                           disabled={renderBusy}
+                          playLabel={t('timeline.play')}
+                          pauseLabel={t('timeline.pause')}
+                          muteLabel={t('timeline.mute')}
+                          unmuteLabel={t('timeline.unmute')}
+                          zoomInLabel={t('timeline.zoomIn')}
+                          zoomOutLabel={t('timeline.zoomOut')}
                         />
                       </div>
                     )}
@@ -314,21 +337,6 @@ export function CaptionsPage() {
                       </div>
                     </div>
                   </div>
-
-                  {localUrl && !renderDone && (
-                    <Timeline
-                      videoUrl={localUrl}
-                      words={words}
-                      selectedIndex={selectedWord}
-                      onSelect={setSelectedWord}
-                      onUpdateWord={updateWord}
-                      disabled={renderBusy}
-                      playLabel={t('timeline.play')}
-                      pauseLabel={t('timeline.pause')}
-                      zoomInLabel={t('timeline.zoomIn')}
-                      zoomOutLabel={t('timeline.zoomOut')}
-                    />
-                  )}
 
                   {renderRunner.errorCode && (
                     <ErrorMessage>

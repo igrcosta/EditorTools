@@ -1,44 +1,13 @@
-import type { CaptionAnimation, CaptionFont, CaptionPreset, CustomCaptionStyle } from '@editools/shared';
+import {
+  CAPTION_BOUNCE_TIMING,
+  CAPTION_FADE_TIMING,
+  groupWords,
+  type CaptionAnimation,
+  type CaptionFont,
+  type CaptionPreset,
+  type CustomCaptionStyle,
+} from '@editools/shared';
 import type { TranscriptWord } from './whisper';
-
-export interface WordChunk {
-  words: TranscriptWord[];
-  start: number;
-  end: number;
-}
-
-const MAX_CHUNK_CHARS = 42;
-const MAX_CHUNK_WORDS = 7;
-const MAX_GAP_SECONDS = 0.6;
-
-/**
- * Regroups whisper's flat word list into on-screen caption lines: a new chunk
- * starts once a line gets too long, has too many words, or there's a pause
- * long enough to read as a sentence break. Works the same whether the words
- * came straight from ASR or were edited/re-timed by the user first.
- */
-export function groupWords(words: TranscriptWord[]): WordChunk[] {
-  const chunks: WordChunk[] = [];
-  let current: TranscriptWord[] = [];
-  let currentChars = 0;
-
-  const flush = () => {
-    if (current.length === 0) return;
-    chunks.push({ words: current, start: current[0].start, end: current[current.length - 1].end });
-    current = [];
-    currentChars = 0;
-  };
-
-  for (const word of words) {
-    const gap = current.length > 0 ? word.start - current[current.length - 1].end : 0;
-    const wouldOverflow = currentChars + word.text.length + 1 > MAX_CHUNK_CHARS || current.length >= MAX_CHUNK_WORDS;
-    if (current.length > 0 && (gap > MAX_GAP_SECONDS || wouldOverflow)) flush();
-    current.push(word);
-    currentChars += word.text.length + 1;
-  }
-  flush();
-  return chunks;
-}
 
 /** Sorts by start time and drops anything with non-positive duration or empty text — user edits can produce either. */
 export function normalizeWords(words: TranscriptWord[]): TranscriptWord[] {
@@ -72,21 +41,6 @@ interface PresetStyle {
 
 /** Fixed, server-defined visual styles — not user-customizable in v1. Where/how big they sit is a separate, free-form position + scale (see buildAssTrack). */
 const PRESETS: Record<CaptionPreset, PresetStyle> = {
-  clean: {
-    fontName: 'Arial',
-    fontSizeRatio: 0.045,
-    primaryColorRgb: 'FFFFFF',
-    outlineColorRgb: '000000',
-    highlightColorRgb: null,
-    bold: false,
-    italic: false,
-    borderStyle: 1,
-    outline: 2,
-    shadow: 1,
-    backColorRgb: '000000',
-    backOpacity: 1,
-    animation: 'none',
-  },
   karaoke: {
     fontName: 'Arial',
     fontSizeRatio: 0.05,
@@ -103,67 +57,6 @@ const PRESETS: Record<CaptionPreset, PresetStyle> = {
     backOpacity: 1,
     // The one built-in preset that plays a per-word reveal — it's already the "active word" style.
     animation: 'bounce',
-  },
-  boxed: {
-    fontName: 'Arial',
-    fontSizeRatio: 0.042,
-    primaryColorRgb: 'FFFFFF',
-    outlineColorRgb: '000000',
-    highlightColorRgb: null,
-    bold: false,
-    italic: false,
-    borderStyle: 3,
-    outline: 4,
-    shadow: 0,
-    backColorRgb: '000000',
-    backOpacity: 0.5,
-    animation: 'none',
-  },
-  minimal: {
-    fontName: 'Arial',
-    fontSizeRatio: 0.032,
-    primaryColorRgb: 'FFFFFF',
-    outlineColorRgb: '000000',
-    highlightColorRgb: null,
-    bold: false,
-    italic: false,
-    borderStyle: 1,
-    outline: 1,
-    shadow: 1,
-    backColorRgb: '000000',
-    backOpacity: 1,
-    animation: 'none',
-  },
-  bold: {
-    fontName: 'Arial',
-    fontSizeRatio: 0.065,
-    primaryColorRgb: 'FFFFFF',
-    outlineColorRgb: '000000',
-    highlightColorRgb: null,
-    bold: true,
-    italic: false,
-    borderStyle: 1,
-    outline: 4,
-    shadow: 1,
-    backColorRgb: '000000',
-    backOpacity: 1,
-    animation: 'none',
-  },
-  outline: {
-    fontName: 'Arial',
-    fontSizeRatio: 0.048,
-    primaryColorRgb: 'FFFFFF',
-    // Editools' own brand accent, used as the outline instead of the usual black.
-    outlineColorRgb: '9146FF',
-    highlightColorRgb: null,
-    bold: true,
-    italic: false,
-    borderStyle: 1,
-    outline: 3,
-    shadow: 0,
-    backColorRgb: '000000',
-    backOpacity: 1,
-    animation: 'none',
   },
 };
 
@@ -218,11 +111,15 @@ function opacityToAssAlpha(opacity: number): string {
  */
 function animationTags(animation: CaptionAnimation): string {
   switch (animation) {
-    case 'bounce':
-      // 60% → overshoot to 115% by 80ms → settle to 100% by 150ms: a pop, not a linear grow.
-      return '\\fscx60\\fscy60\\t(0,80,\\fscx115\\fscy115)\\t(80,150,\\fscx100\\fscy100)';
+    case 'bounce': {
+      // startScale → overshoot to peakScale by peakMs → settle to 100% by settleMs: a pop, not a linear grow.
+      const { startScale, peakScale, peakMs, settleMs } = CAPTION_BOUNCE_TIMING;
+      const start = Math.round(startScale * 100);
+      const peak = Math.round(peakScale * 100);
+      return `\\fscx${start}\\fscy${start}\\t(0,${peakMs},\\fscx${peak}\\fscy${peak})\\t(${peakMs},${settleMs},\\fscx100\\fscy100)`;
+    }
     case 'fade':
-      return '\\alpha&HFF&\\t(0,150,\\alpha&H00&)';
+      return `\\alpha&HFF&\\t(0,${CAPTION_FADE_TIMING.durationMs},\\alpha&H00&)`;
     default:
       return '';
   }

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import type { CaptionWord } from '@editools/shared';
 
 interface Props {
-  videoUrl: string;
+  videoEl: HTMLVideoElement | null;
+  currentTime: number;
+  duration: number;
+  playing: boolean;
   words: CaptionWord[];
   selectedIndex: number | null;
   onSelect: (index: number | null) => void;
@@ -10,6 +13,8 @@ interface Props {
   disabled?: boolean;
   playLabel: string;
   pauseLabel: string;
+  muteLabel: string;
+  unmuteLabel: string;
   zoomInLabel: string;
   zoomOutLabel: string;
 }
@@ -42,11 +47,15 @@ interface DragState {
 
 /**
  * Scrubbable word timeline, subvid.app-style: play the clip, zoom the ruler, drag a word's
- * edges to retime it or its body to shift it, click a word to select + seek. The plain
- * text/number editor next to this stays as the accessible fallback for the same data.
+ * edges to retime it or its body to shift it, click a word to select + seek. Drives the SAME
+ * <video> element the stage above renders — there's exactly one player, so what plays here is
+ * what you see there, never a second, unsynced preview.
  */
 export function Timeline({
-  videoUrl,
+  videoEl,
+  currentTime,
+  duration,
+  playing,
   words,
   selectedIndex,
   onSelect,
@@ -54,35 +63,23 @@ export function Timeline({
   disabled,
   playLabel,
   pauseLabel,
+  muteLabel,
+  unmuteLabel,
   zoomInLabel,
   zoomOutLabel,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const scrubbing = useRef(false);
+  const wasPlayingBeforeScrub = useRef(false);
 
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [playing, setPlaying] = useState(false);
   const [pxPerSec, setPxPerSec] = useState(DEFAULT_PX_PER_SEC);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const onTime = () => setCurrentTime(video.currentTime);
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    video.addEventListener('timeupdate', onTime);
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
-    return () => {
-      video.removeEventListener('timeupdate', onTime);
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
-    };
-  }, []);
+    if (videoEl) videoEl.muted = muted;
+  }, [videoEl, muted]);
 
   // Keep the playhead in view while the clip plays, without fighting manual scrubbing.
   useEffect(() => {
@@ -96,17 +93,14 @@ export function Timeline({
   }, [currentTime, pxPerSec, playing]);
 
   const seekTo = (seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.min(duration, Math.max(0, seconds));
-    setCurrentTime(video.currentTime);
+    if (!videoEl) return;
+    videoEl.currentTime = Math.min(duration, Math.max(0, seconds));
   };
 
   const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video || disabled) return;
-    if (video.paused) void video.play();
-    else video.pause();
+    if (!videoEl || disabled) return;
+    if (videoEl.paused) void videoEl.play();
+    else videoEl.pause();
   };
 
   const zoom = (factor: number) => {
@@ -120,8 +114,10 @@ export function Timeline({
   };
 
   const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (disabled || dragRef.current) return;
+    if (disabled || dragRef.current || !videoEl) return;
     scrubbing.current = true;
+    wasPlayingBeforeScrub.current = !videoEl.paused;
+    videoEl.pause();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     seekTo(clientXToSeconds(e.clientX));
   };
@@ -132,6 +128,7 @@ export function Timeline({
   };
 
   const onTrackPointerUp = () => {
+    if (scrubbing.current && wasPlayingBeforeScrub.current) void videoEl?.play();
     scrubbing.current = false;
   };
 
@@ -175,11 +172,20 @@ export function Timeline({
         <button
           type="button"
           onClick={togglePlay}
-          disabled={disabled}
+          disabled={disabled || !videoEl}
           aria-label={playing ? pauseLabel : playLabel}
           className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 text-zinc-200 hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <i className={playing ? 'fi-rr-pause' : 'fi-rr-play'} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setMuted((m) => !m)}
+          disabled={disabled || !videoEl}
+          aria-label={muted ? unmuteLabel : muteLabel}
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 text-zinc-400 hover:border-accent/50 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <i className={muted ? 'fi-rr-volume-mute' : 'fi-rr-volume'} aria-hidden="true" />
         </button>
         <span className="font-mono text-xs text-zinc-400 tabular-nums">
           {formatClock(currentTime)} / {formatClock(duration)}
@@ -205,15 +211,6 @@ export function Timeline({
           </button>
         </div>
       </div>
-
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        playsInline
-        preload="metadata"
-        className="hidden"
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
-      />
 
       <div ref={scrollRef} className="touch-none overflow-x-auto overflow-y-hidden rounded border border-white/10 bg-zinc-900/60">
         <div

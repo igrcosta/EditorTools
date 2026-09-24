@@ -17,7 +17,6 @@ export interface PreviewStyle {
  * actual render styles) closely enough to recognize each look at a glance in the browser.
  */
 export const PRESET_PREVIEW_STYLES: Record<CaptionPreset, PreviewStyle> = {
-  clean: { fontFamily: 'inherit', weight: 400, italic: false, color: '#fff', outlineColor: '#000', shadow: false, background: null },
   karaoke: {
     fontFamily: 'inherit',
     weight: 700,
@@ -28,26 +27,6 @@ export const PRESET_PREVIEW_STYLES: Record<CaptionPreset, PreviewStyle> = {
     background: null,
     highlight: '#9146ff',
     animation: 'bounce',
-  },
-  boxed: {
-    fontFamily: 'inherit',
-    weight: 400,
-    italic: false,
-    color: '#fff',
-    outlineColor: '#000',
-    shadow: false,
-    background: { color: '#000000', opacity: 0.5 },
-  },
-  minimal: { fontFamily: 'inherit', weight: 400, italic: false, color: '#fff', outlineColor: '#000', shadow: false, background: null },
-  bold: { fontFamily: 'inherit', weight: 700, italic: false, color: '#fff', outlineColor: '#000', shadow: false, background: null },
-  outline: {
-    fontFamily: 'inherit',
-    weight: 700,
-    italic: false,
-    color: '#fff',
-    outlineColor: '#9146ff',
-    shadow: false,
-    background: null,
   },
 };
 
@@ -83,7 +62,7 @@ export function resolvePreviewStyle(
     const found = customTemplates.find((t) => t.id === id);
     if (found) return customPreviewStyle(found.style);
   }
-  const preset = CAPTION_PRESETS.includes(selectedKey as CaptionPreset) ? (selectedKey as CaptionPreset) : 'clean';
+  const preset = CAPTION_PRESETS.includes(selectedKey as CaptionPreset) ? (selectedKey as CaptionPreset) : 'karaoke';
   return PRESET_PREVIEW_STYLES[preset];
 }
 

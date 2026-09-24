@@ -86,7 +86,7 @@ const customStyleField = z
 
 const captionsRenderSchema = z.object({
   words: captionWordsField,
-  preset: z.enum(CAPTION_PRESETS).default('clean'),
+  preset: z.enum(CAPTION_PRESETS).default('karaoke'),
   customStyle: customStyleField,
   positionX: z.coerce.number().min(0).max(1).default(CAPTION_POSITION_DEFAULT),
   positionY: z.coerce.number().min(0).max(1).default(CAPTION_POSITION_Y_DEFAULT),

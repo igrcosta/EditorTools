@@ -105,7 +105,7 @@ export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
 // ---------------------------------------------------------------------------
 
 /** Visual style only — where the captions sit on screen and how big they are is a separate, independent choice. */
-export const CAPTION_PRESETS = ['clean', 'karaoke', 'boxed', 'minimal', 'bold', 'outline'] as const;
+export const CAPTION_PRESETS = ['karaoke'] as const;
 export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
 
 /**
@@ -162,6 +162,53 @@ export interface CaptionWord {
   start: number;
   end: number;
 }
+
+export interface WordChunk {
+  words: CaptionWord[];
+  start: number;
+  end: number;
+}
+
+const MAX_CHUNK_CHARS = 42;
+const MAX_CHUNK_WORDS = 7;
+const MAX_GAP_SECONDS = 0.6;
+
+/**
+ * Regroups a flat word list into on-screen caption lines: a new chunk starts once a line gets
+ * too long, has too many words, or there's a pause long enough to read as a sentence break.
+ * Shared between the server's burned-in render and the web app's live preview so both agree on
+ * exactly the same line breaks.
+ */
+export function groupWords(words: CaptionWord[]): WordChunk[] {
+  const chunks: WordChunk[] = [];
+  let current: CaptionWord[] = [];
+  let currentChars = 0;
+
+  const flush = () => {
+    if (current.length === 0) return;
+    chunks.push({ words: current, start: current[0].start, end: current[current.length - 1].end });
+    current = [];
+    currentChars = 0;
+  };
+
+  for (const word of words) {
+    const gap = current.length > 0 ? word.start - current[current.length - 1].end : 0;
+    const wouldOverflow = currentChars + word.text.length + 1 > MAX_CHUNK_CHARS || current.length >= MAX_CHUNK_WORDS;
+    if (current.length > 0 && (gap > MAX_GAP_SECONDS || wouldOverflow)) flush();
+    current.push(word);
+    currentChars += word.text.length + 1;
+  }
+  flush();
+  return chunks;
+}
+
+/**
+ * Timing for the per-word entrance animations (see CaptionAnimation), in milliseconds relative
+ * to the word's own start. Shared so the server's burned-in `.ass` tags and the web app's live
+ * preview play the exact same curve instead of two hand-tuned approximations drifting apart.
+ */
+export const CAPTION_BOUNCE_TIMING = { startScale: 0.6, peakScale: 1.15, peakMs: 80, settleMs: 150 } as const;
+export const CAPTION_FADE_TIMING = { durationMs: 150 } as const;
 
 /** Extra result info some tools report (e.g. silence cutting stats). */
 export interface JobMeta {

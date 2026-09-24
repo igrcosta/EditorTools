@@ -1,39 +1,47 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { CAPTION_SCALE_MAX, CAPTION_SCALE_MIN } from '@editools/shared';
+import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { CAPTION_SCALE_MAX, CAPTION_SCALE_MIN, groupWords, type CaptionWord } from '@editools/shared';
+import { bounceScale, fadeAlpha, resolveActiveCaption } from './liveCaption';
 import { outlineShadow, withAlpha, type PreviewStyle } from './previewStyles';
 
 interface Props {
+  videoRef: (el: HTMLVideoElement | null) => void;
   videoUrl: string;
+  words: CaptionWord[];
+  currentTime: number;
   positionX: number;
   positionY: number;
   scale: number;
   onPositionChange: (x: number, y: number) => void;
   onScaleChange: (scale: number) => void;
-  sampleText: string;
   previewStyle: PreviewStyle;
+  placeholder: string;
   disabled?: boolean;
 }
 
 /**
- * Video preview with the actual selected template rendered live on top — not a placeholder box.
- * Drag it to set where captions sit, resize with the "Size" slider. Position also has plain
- * range-input fallbacks below the frame for keyboard/screen-reader use. It's still a CSS
- * approximation of the real burned-in render (which is the .ass file libass draws), but it's the
- * chosen font/colors/outline/shadow/background/animation, not a generic stand-in.
+ * The actual video, playing, with the real caption words overlaid exactly where and when they'll
+ * burn in — not a static sample. Drag the overlay to set position, resize with "Size". Position
+ * also has plain range-input fallbacks below the frame for keyboard/screen-reader use.
  */
 export function CaptionFrame({
+  videoRef,
   videoUrl,
+  words,
+  currentTime,
   positionX,
   positionY,
   scale,
   onPositionChange,
   onScaleChange,
-  sampleText,
   previewStyle: style,
+  placeholder,
   disabled,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+
+  const chunks = useMemo(() => groupWords(words), [words]);
+  const active = useMemo(() => resolveActiveCaption(chunks, currentTime, style), [chunks, currentTime, style]);
 
   const moveTo = (clientX: number, clientY: number) => {
     const rect = frameRef.current?.getBoundingClientRect();
@@ -70,18 +78,21 @@ export function CaptionFrame({
         onPointerCancel={onPointerUp}
       >
         <video
+          ref={videoRef}
           src={videoUrl}
-          muted
           playsInline
           preload="metadata"
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
         />
+
         <div
           aria-hidden
-          className="absolute max-w-[85%] -translate-x-1/2 -translate-y-1/2 cursor-move text-center leading-tight whitespace-pre-wrap outline-1 outline-dashed outline-white/30 outline-offset-4"
+          className="pointer-events-none absolute inline-flex max-w-[85%] -translate-x-1/2 -translate-y-1/2 flex-wrap justify-center text-center leading-tight"
           style={{
             left: `${positionX * 100}%`,
             top: `${positionY * 100}%`,
+            columnGap: '0.35em',
+            rowGap: '0.15em',
             fontFamily: style.fontFamily,
             fontSize: `${0.85 * scale}rem`,
             fontWeight: style.weight,
@@ -92,16 +103,31 @@ export function CaptionFrame({
             backgroundColor: style.background ? withAlpha(style.background.color, style.background.opacity) : undefined,
             padding: style.background ? '0.2em 0.5em' : undefined,
             borderRadius: style.background ? '0.25em' : undefined,
-            animation:
-              style.highlight || style.animation
-                ? style.highlight
-                  ? 'caption-preview-highlight 1500ms steps(1) infinite'
-                  : `caption-preview-${style.animation} 1800ms ease-out infinite`
-                : undefined,
-            ...(style.highlight ? { ['--highlight-color' as string]: style.highlight } : {}),
           }}
         >
-          {sampleText}
+          {active !== null
+            ? active.words.map((w, i) =>
+                w.role === 'active' ? (
+                  <span
+                    key={i}
+                    style={{
+                      display: 'inline-block',
+                      color: style.highlight ?? style.color,
+                      transform: style.animation === 'bounce' ? `scale(${bounceScale(active.elapsedMs)})` : undefined,
+                      opacity: style.animation === 'fade' ? fadeAlpha(active.elapsedMs) : 1,
+                    }}
+                  >
+                    {w.text}
+                  </span>
+                ) : (
+                  <span key={i}>{w.text}</span>
+                ),
+              )
+            : (
+                <span className="rounded border border-dashed border-white/30 px-3 py-1 text-xs font-normal text-white/50 normal-case">
+                  {placeholder}
+                </span>
+              )}
         </div>
       </div>
 

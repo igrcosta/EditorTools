@@ -14,21 +14,18 @@
   "deleteWord": "Remove word",
   "templateTitle": "Template",
   "preset": {
-    "clean": "Clean",
-    "karaoke": "Karaoke highlight",
-    "boxed": "Boxed",
-    "minimal": "Minimal",
-    "bold": "Bold",
-    "outline": "Accent outline"
+    "karaoke": "Karaoke highlight"
   },
   "positionTitle": "Position & size",
   "timeline": {
     "play": "Play",
     "pause": "Pause",
+    "mute": "Mute",
+    "unmute": "Unmute",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out"
   },
-  "samplePlaceholder": "Your captions",
+  "captionsPlaceholder": "Captions will appear here",
   "generate": "Generate captions",
   "generateAgain": "Generate again",
   "uploading": "Reading video…",
