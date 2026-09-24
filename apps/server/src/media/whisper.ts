@@ -14,10 +14,18 @@ export interface TranscriptResult {
 }
 
 /**
- * Runs whisper.cpp's CLI (word-level timestamps via -ml 1 -sow) against a
- * 16kHz mono WAV, writing `<tempDir>/transcript.json`. No progress callback:
- * whisper-cli's own --print-progress counter is unreliable (observed reporting
- * over 100%) — callers should treat this whole step as indeterminate.
+ * Runs whisper.cpp's CLI against a 16kHz mono WAV, writing `<tempDir>/transcript.json`. No
+ * progress callback: whisper-cli's own --print-progress counter is unreliable (observed
+ * reporting over 100%) — callers should treat this whole step as indeterminate.
+ *
+ * Deliberately doesn't ask whisper.cpp to do the word-splitting itself (the old `-ml 1 -sow`
+ * flags): that mode stretches each word's End to wherever the *next* word starts, silently
+ * swallowing real pauses into the previous word's duration (empirically confirmed — a word
+ * before a 300ms breath would report as 300ms longer than it was actually spoken). `--dtw`
+ * would be the "correct" fix but is broken in this vendored build regardless of model/preset
+ * (every token comes back with `t_dtw: -1`). Instead this parses the raw per-token offsets
+ * (`-oj -ojf`, no `-ml`) and reconstructs words itself in parseWhisperOutput — same underlying
+ * per-token timestamps whisper.cpp already computes, just without the stretch-to-next-word step.
  */
 export function transcribe(wavPath: string, modelPath: string, tempDir: string): ProcessHandle {
   if (!config.whisperPath) {
@@ -26,7 +34,7 @@ export function transcribe(wavPath: string, modelPath: string, tempDir: string):
   const outBase = path.join(tempDir, 'transcript');
   const proc = spawn(
     config.whisperPath,
-    ['-m', modelPath, '-f', wavPath, '-l', 'auto', '-ml', '1', '-sow', '-oj', '-ojf', '-of', outBase, '-np'],
+    ['-m', modelPath, '-f', wavPath, '-l', 'auto', '-oj', '-ojf', '-of', outBase, '-np'],
     { windowsHide: true },
   );
 
@@ -55,23 +63,38 @@ export async function readTranscript(tempDir: string): Promise<TranscriptResult>
 }
 
 /**
- * Parses whisper-cli's -ojf JSON output. With -ml 1 -sow, each
- * `transcription[]` entry is already exactly one word (verified against a
- * real b5130 build) — offsets are milliseconds, text carries a leading space.
+ * Parses whisper-cli's -ojf JSON output and regroups its per-token offsets into words: a token
+ * whose own text starts with a space begins a new word (GPT-2/whisper BPE convention — a token
+ * with no leading space is a sub-word continuation, e.g. "world" + "-" + "level"), everything
+ * else appends to the word in progress. A word's End is its own last token's End, never
+ * stretched into whatever silence follows — that's the whole point over whisper.cpp's built-in
+ * `-ml 1 -sow` word-splitting (see transcribe()). Offsets are milliseconds.
  */
 export function parseWhisperOutput(json: unknown): TranscriptResult {
   const root = json as {
-    transcription?: Array<{ text?: string; offsets?: { from?: number; to?: number } }>;
+    transcription?: Array<{ tokens?: Array<{ text?: string; offsets?: { from?: number; to?: number } }> }>;
     result?: { language?: string };
   };
-  const entries = Array.isArray(root.transcription) ? root.transcription : [];
+  const segments = Array.isArray(root.transcription) ? root.transcription : [];
+
   const words: TranscriptWord[] = [];
-  for (const entry of entries) {
-    const text = (entry.text ?? '').trim();
-    if (!text) continue;
-    const from = entry.offsets?.from ?? 0;
-    const to = entry.offsets?.to ?? from;
-    words.push({ text, start: from / 1000, end: Math.max(to, from + 1) / 1000 });
+  for (const segment of segments) {
+    for (const token of segment.tokens ?? []) {
+      const raw = token.text ?? '';
+      const text = raw.trim();
+      // Whisper's control/special tokens ("[_BEG_]", "[_TT_283]", ...) aren't real words.
+      if (!text || /^\[.*\]$/.test(text)) continue;
+
+      const from = token.offsets?.from ?? 0;
+      const to = Math.max(token.offsets?.to ?? from, from + 1);
+      if (/^\s/.test(raw) || words.length === 0) {
+        words.push({ text, start: from / 1000, end: to / 1000 });
+      } else {
+        const current = words[words.length - 1];
+        current.text += text;
+        current.end = to / 1000;
+      }
+    }
   }
   return { words, language: root.result?.language };
 }

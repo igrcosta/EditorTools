@@ -34,7 +34,10 @@ const DEFAULT_KEY: CaptionPreset = 'karaoke';
 
 interface TranscribeResult {
   words: CaptionWord[];
+  videoFps: number | null;
 }
+
+const DEFAULT_FPS = 30;
 
 export function CaptionsPage() {
   const { t } = useTranslation('captions');
@@ -52,6 +55,7 @@ export function CaptionsPage() {
   const [positionY, setPositionY] = useState(CAPTION_POSITION_Y_DEFAULT);
   const [scale, setScale] = useState(CAPTION_SCALE_DEFAULT);
   const [selectedWord, setSelectedWord] = useState<number | null>(null);
+  const [videoFps, setVideoFps] = useState<number | null>(null);
   const localUrl = useObjectUrl(file);
   const { videoRef, videoEl, currentTime, duration, playing } = useVideoPlayback();
 
@@ -80,7 +84,10 @@ export function CaptionsPage() {
     void api
       .jobResult<TranscribeResult>(job.id)
       .then((result) => {
-        if (active) setWords(result.words);
+        if (active) {
+          setWords(result.words);
+          setVideoFps(result.videoFps);
+        }
       })
       .catch(() => undefined)
       .finally(() => {
@@ -107,6 +114,7 @@ export function CaptionsPage() {
     setPositionY(CAPTION_POSITION_Y_DEFAULT);
     setScale(CAPTION_SCALE_DEFAULT);
     setSelectedWord(null);
+    setVideoFps(null);
     transcribeRunner.reset();
     renderRunner.reset();
   };
@@ -263,6 +271,7 @@ export function CaptionsPage() {
                           currentTime={currentTime}
                           duration={duration}
                           playing={playing}
+                          fps={videoFps && videoFps > 0 ? videoFps : DEFAULT_FPS}
                           words={words}
                           selectedIndex={selectedWord}
                           onSelect={setSelectedWord}

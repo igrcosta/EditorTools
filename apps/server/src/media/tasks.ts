@@ -752,7 +752,7 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
 
         await writeFile(
           path.join(tempDir, outputName),
-          JSON.stringify({ words, videoWidth: probe.width, videoHeight: probe.height }),
+          JSON.stringify({ words, videoWidth: probe.width, videoHeight: probe.height, videoFps: probe.fps }),
           'utf8',
         );
       }),

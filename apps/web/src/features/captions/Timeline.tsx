@@ -6,6 +6,8 @@ interface Props {
   currentTime: number;
   duration: number;
   playing: boolean;
+  /** Video's own frame rate — drives arrow-key frame stepping. */
+  fps: number;
   words: CaptionWord[];
   selectedIndex: number | null;
   onSelect: (index: number | null) => void;
@@ -56,6 +58,7 @@ export function Timeline({
   currentTime,
   duration,
   playing,
+  fps,
   words,
   selectedIndex,
   onSelect,
@@ -103,19 +106,28 @@ export function Timeline({
     else videoEl.pause();
   };
 
-  // Spacebar plays/pauses, same as any video editor — but not while the user is typing (a word's
-  // text, its start/end, a template name) since a space there needs to reach the text field.
+  // Spacebar plays/pauses and the arrow keys step one frame at a time, same as Premiere — but not
+  // while the user is typing (a word's text, its start/end, a template name) since those keys
+  // need to reach the text field instead (moving the cursor, or a space character).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || disabled || !videoEl) return;
+      if (disabled || !videoEl) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      e.preventDefault();
-      togglePlay();
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        videoEl.pause();
+        const frame = 1 / fps;
+        seekTo(videoEl.currentTime + (e.code === 'ArrowLeft' ? -frame : frame));
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [videoEl, disabled]);
+  }, [videoEl, disabled, fps]);
 
   const zoom = (factor: number) => {
     setPxPerSec((prev) => Math.min(MAX_PX_PER_SEC, Math.max(MIN_PX_PER_SEC, Math.round(prev * factor))));
