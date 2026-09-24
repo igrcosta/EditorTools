@@ -3,12 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { DotField } from '../components/DotField';
 
 const CTAS = [
-  { to: '/download', key: 'downloader' },
-  { to: '/audio', key: 'audio' },
-  { to: '/convert', key: 'convert' },
-  { to: '/image', key: 'image' },
-  { to: '/video', key: 'video' },
-  { to: '/captions', key: 'captions' },
+  { to: '/files', key: 'files', icon: 'fi-rr-folder-download' },
+  { to: '/audio', key: 'audio', icon: 'fi-rr-waveform' },
+  { to: '/image', key: 'image', icon: 'fi-rr-picture' },
+  { to: '/video', key: 'video', icon: 'fi-rr-face-viewfinder' },
+  { to: '/captions', key: 'captions', icon: 'fi-rr-subtitles' },
 ] as const;
 
 export function HomePage() {
@@ -33,14 +32,15 @@ export function HomePage() {
         </h1>
         <p className="mt-5 text-base text-zinc-400">{t('subtitle')}</p>
 
-        <div className="mt-16 grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {CTAS.map(({ to, key }) => (
+        <div className="mt-16 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {CTAS.map(({ to, key, icon }) => (
             <Link
               key={to}
               to={to}
               className="group rounded-lg border border-white/10 bg-surface p-4 text-left transition-colors duration-200 hover:border-accent/50"
             >
-              <p className="font-medium text-zinc-100 group-hover:text-accent-text">
+              <i className={`${icon} text-xl text-accent-text`} aria-hidden="true" />
+              <p className="mt-2 font-medium text-zinc-100 group-hover:text-accent-text">
                 {t(`home.${key}.title`)}
               </p>
               <p className="mt-1 text-sm text-zinc-500">{t(`home.${key}.description`)}</p>

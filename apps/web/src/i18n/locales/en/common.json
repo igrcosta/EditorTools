@@ -4,25 +4,20 @@
   "subtitle": "Do the boring work faster.",
   "comingSoon": "Coming soon",
   "nav": {
-    "downloader": "Master Downloader",
+    "files": "Files",
     "audio": "Audio",
-    "convert": "Convert",
     "image": "Image",
     "video": "Face Tracking",
     "captions": "Captions"
   },
   "home": {
-    "downloader": {
-      "title": "Master Downloader",
-      "description": "Save video or audio from any link"
+    "files": {
+      "title": "Files",
+      "description": "Download from any link or convert formats"
     },
     "audio": {
       "title": "Audio Tools",
       "description": "Cut silences, clean noise, trim"
-    },
-    "convert": {
-      "title": "Convert Files",
-      "description": "Any format, one click"
     },
     "image": {
       "title": "Image Tools",
@@ -35,6 +30,14 @@
     "captions": {
       "title": "Automatic Captions",
       "description": "Transcribe and burn in styled captions"
+    }
+  },
+  "filesHub": {
+    "title": "Files",
+    "description": "Get media in, or change its format — pick a tool below.",
+    "tabs": {
+      "download": "Master Downloader",
+      "convert": "Convert"
     }
   },
   "audioHub": {
@@ -70,7 +73,8 @@
   },
   "footer": {
     "privacy": "No accounts. No tracking. Files are deleted after processing.",
-    "legal": "For your own or licensed content — respect each platform's terms."
+    "legal": "For your own or licensed content — respect each platform's terms.",
+    "icons": "Interface icons by"
   },
   "tools": {
     "download": {

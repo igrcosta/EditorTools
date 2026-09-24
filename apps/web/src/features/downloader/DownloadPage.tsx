@@ -23,7 +23,7 @@ function loadFormat(): OutputFormat {
   }
 }
 
-export function DownloadPage() {
+export function DownloadPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('downloader');
   const dl = useDownloader();
 
@@ -95,11 +95,9 @@ export function DownloadPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-        hint={t('platformsHint')}
-      />
+      {!embedded && (
+        <PageHeader title={t('title')} description={t('description')} hint={t('platformsHint')} />
+      )}
 
       <form onSubmit={onAnalyze} className="flex gap-2">
         <Input

@@ -32,7 +32,7 @@ function kindOf(file: File): FileKind {
   return 'unknown';
 }
 
-export function ConvertPage() {
+export function ConvertPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('converter');
   const runner = useJobRunner({ autoSave: false });
 
@@ -84,7 +84,7 @@ export function ConvertPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader title={t('title')} description={t('description')} />
+      {!embedded && <PageHeader title={t('title')} description={t('description')} />}
 
       {!file && <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept="video/*,audio/*" onFile={onFile} />}
 

@@ -2,12 +2,11 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const NAV = [
-  { to: '/download', key: 'downloader' },
-  { to: '/audio', key: 'audio' },
-  { to: '/convert', key: 'convert' },
-  { to: '/image', key: 'image' },
-  { to: '/video', key: 'video' },
-  { to: '/captions', key: 'captions' },
+  { to: '/files', key: 'files', icon: 'fi-rr-folder-download' },
+  { to: '/audio', key: 'audio', icon: 'fi-rr-waveform' },
+  { to: '/image', key: 'image', icon: 'fi-rr-picture' },
+  { to: '/video', key: 'video', icon: 'fi-rr-face-viewfinder' },
+  { to: '/captions', key: 'captions', icon: 'fi-rr-subtitles' },
 ] as const;
 
 export function Layout() {
@@ -23,18 +22,19 @@ export function Layout() {
             {t('appName')}
           </Link>
           <nav className="flex items-center gap-1 sm:gap-2">
-            {NAV.map(({ to, key }) => (
+            {NAV.map(({ to, key, icon }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  `flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors ${
                     isActive
                       ? 'bg-accent/10 text-accent-text'
                       : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'
                   }`
                 }
               >
+                <i className={`${icon} text-sm`} aria-hidden="true" />
                 {t(`nav.${key}`)}
               </NavLink>
             ))}
@@ -48,6 +48,17 @@ export function Layout() {
         <div className="mx-auto w-full max-w-4xl space-y-1 px-4 py-4 text-xs text-zinc-500">
           <p>{t('footer.privacy')}</p>
           <p>{t('footer.legal')}</p>
+          <p>
+            {t('footer.icons')}{' '}
+            <a
+              href="https://www.flaticon.com/uicons"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-zinc-300"
+            >
+              Flaticon UIcons
+            </a>
+          </p>
         </div>
       </footer>
     </div>

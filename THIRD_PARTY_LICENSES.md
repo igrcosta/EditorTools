@@ -15,3 +15,11 @@ Binaries and models fetched into `vendor/` by `scripts/fetch-vendor.mjs` and shi
 | Whisper "base" weights (`ggml-base.bin`, GGML conversion of OpenAI's Whisper) | Automatic Captions transcription | MIT | https://huggingface.co/ggerganov/whisper.cpp |
 
 Not used on purpose (licensing): BRIA RMBG-1.4/2.0 (non-commercial), `@imgly/background-removal` (AGPL-3.0), `upscayl-ncnn` (AGPL-3.0).
+
+## Web app assets
+
+Self-hosted in `apps/web/public/`.
+
+| Component | Use | License | Source |
+|---|---|---|---|
+| Flaticon UIcons (regular-rounded style) | Interface icons (nav, home, tool pages) | Free (attribution required — see the footer credit in `Layout.tsx`) | https://www.flaticon.com/uicons |
