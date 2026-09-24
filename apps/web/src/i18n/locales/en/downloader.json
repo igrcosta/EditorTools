@@ -27,6 +27,18 @@
   "downloadAnother": "Download another",
   "cancel": "Cancel",
   "tryAgain": "Try again",
+  "cookies": {
+    "toggle": "Having trouble downloading?",
+    "label": "Use cookies from browser",
+    "none": "None",
+    "hint": "Close that browser before downloading — it locks its cookie file while running.",
+    "browser": {
+      "chrome": "Chrome",
+      "edge": "Edge",
+      "firefox": "Firefox",
+      "brave": "Brave"
+    }
+  },
   "errors": {
     "invalid_url": "That doesn't look like a valid link.",
     "unsupported_scheme": "Only http and https links are supported.",
@@ -36,7 +48,8 @@
     "restricted": "This media is private or requires a login.",
     "unavailable": "This media is unavailable or has been removed.",
     "geo_blocked": "This media isn't available in your region.",
-    "bot_check": "The source platform is blocking our server (anti-bot check). Try again in a few minutes — some platforms restrict cloud servers.",
+    "bot_check": "The platform wants to confirm you're not a bot. Try \"Use cookies from browser\" below, or try again in a few minutes.",
+    "cookies_browser_locked": "Close that browser first — it locks its cookie file while running. Then try again.",
     "too_long": "This media is too long to process (limit: 4 hours).",
     "too_large": "This file is too large to process.",
     "busy": "Too many downloads at once. Try again in a moment.",

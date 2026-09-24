@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AnalyzeResult, JobState, OutputFormat } from '@editools/shared';
+import type { AnalyzeResult, CookieBrowser, JobState, OutputFormat } from '@editools/shared';
 import { api, ApiClientError } from '../../lib/api';
 
 interface DownloaderState {
   analyzing: boolean;
   analysis: AnalyzeResult | null;
   analyzedUrl: string | null;
+  /** Remembered from analyze() so a later start() uses the same cookie source. */
+  cookiesFromBrowser: CookieBrowser | undefined;
   starting: boolean;
   job: JobState | null;
   errorCode: string | null;
@@ -15,6 +17,7 @@ const IDLE: DownloaderState = {
   analyzing: false,
   analysis: null,
   analyzedUrl: null,
+  cookiesFromBrowser: undefined,
   starting: false,
   job: null,
   errorCode: null,
@@ -27,20 +30,20 @@ function codeOf(err: unknown): string {
 export function useDownloader() {
   const [state, setState] = useState<DownloaderState>(IDLE);
 
-  const analyze = useCallback(async (url: string) => {
-    setState({ ...IDLE, analyzing: true });
+  const analyze = useCallback(async (url: string, cookiesFromBrowser?: CookieBrowser) => {
+    setState({ ...IDLE, analyzing: true, cookiesFromBrowser });
     try {
-      const analysis = await api.analyze(url);
-      setState({ ...IDLE, analysis, analyzedUrl: url });
+      const analysis = await api.analyze(url, cookiesFromBrowser);
+      setState({ ...IDLE, analysis, analyzedUrl: url, cookiesFromBrowser });
     } catch (err) {
-      setState({ ...IDLE, errorCode: codeOf(err) });
+      setState({ ...IDLE, cookiesFromBrowser, errorCode: codeOf(err) });
     }
   }, []);
 
   /** Starts (or re-starts) the download with the user's chosen format/quality. */
   const start = useCallback(
     async (output: OutputFormat, height: number | undefined) => {
-      const { analyzedUrl, analysis, job } = state;
+      const { analyzedUrl, analysis, cookiesFromBrowser, job } = state;
       if (!analyzedUrl || !analysis) return;
       if (job && (job.status === 'queued' || job.status === 'running')) {
         void api.cancelJob(job.id).catch(() => undefined);
@@ -52,6 +55,7 @@ export function useDownloader() {
           output,
           height: output === 'mp4' ? height : undefined,
           title: analysis.title,
+          cookiesFromBrowser,
         });
         setState((s) => ({
           ...s,

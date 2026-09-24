@@ -8,8 +8,18 @@ export interface QualityOption {
   recommended: boolean;
 }
 
+/**
+ * Browsers yt-dlp can pull cookies from directly (its own `--cookies-from-browser`), so a
+ * bot-check wall can be passed just by being logged into YouTube in one of these — no manual
+ * cookies.txt export. Only meaningful when the server and the browser share the same machine
+ * (the desktop app); on the hosted web deploy it just won't find a matching profile.
+ */
+export const COOKIE_BROWSERS = ['chrome', 'edge', 'firefox', 'brave'] as const;
+export type CookieBrowser = (typeof COOKIE_BROWSERS)[number];
+
 export interface AnalyzeRequest {
   url: string;
+  cookiesFromBrowser?: CookieBrowser;
 }
 
 export interface AnalyzeResult {
@@ -28,6 +38,7 @@ export interface DownloadRequest {
   height?: number;
   /** Media title from analyze, used (sanitized) for the downloaded filename */
   title?: string;
+  cookiesFromBrowser?: CookieBrowser;
 }
 
 export interface DownloadStarted {
@@ -244,6 +255,7 @@ export const ERROR_CODES = [
   'unavailable',
   'geo_blocked',
   'bot_check',
+  'cookies_browser_locked',
   'too_long',
   'too_large',
   'busy',

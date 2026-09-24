@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { DownloadStarted } from '@editools/shared';
+import { COOKIE_BROWSERS, type DownloadStarted } from '@editools/shared';
 import { apiError } from '../media/errors';
 import { createJob } from '../media/jobs';
 import { downloadTask } from '../media/tasks';
@@ -11,6 +11,7 @@ const bodySchema = z.object({
   output: z.enum(['mp4', 'mp3']),
   height: z.number().int().min(144).max(4320).optional(),
   title: z.string().max(300).optional(),
+  cookiesFromBrowser: z.enum(COOKIE_BROWSERS).optional(),
 });
 
 export function registerDownloadRoute(app: FastifyInstance): void {
@@ -32,6 +33,7 @@ export function registerDownloadRoute(app: FastifyInstance): void {
         output: parsed.data.output,
         height: parsed.data.height,
         title: parsed.data.title,
+        cookiesFromBrowser: parsed.data.cookiesFromBrowser,
       }),
     );
     if (job === 'busy') return reply.code(429).send(apiError('busy'));

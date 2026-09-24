@@ -7,6 +7,7 @@ import type {
   CaptionPreset,
   CaptionWord,
   ConvertFormat,
+  CookieBrowser,
   CustomCaptionStyle,
   LoudnessPreset,
   NoiseLevel,
@@ -53,12 +54,16 @@ export function downloadTask(req: {
   output: OutputFormat;
   height?: number;
   title?: string;
+  cookiesFromBrowser?: CookieBrowser;
 }): JobTask {
   return {
     title: req.title,
     maxAttempts: 3,
     start: (tempDir, callbacks) =>
-      runDownload({ url: req.url, output: req.output, height: req.height, tempDir }, callbacks),
+      runDownload(
+        { url: req.url, output: req.output, height: req.height, cookiesFromBrowser: req.cookiesFromBrowser, tempDir },
+        callbacks,
+      ),
     resolveOutput: async (tempDir) => {
       const file = (await readdir(tempDir)).find((f) => f.toLowerCase().endsWith(`.${req.output}`));
       return file ? path.join(tempDir, file) : undefined;
@@ -257,6 +262,33 @@ function keptSegments(
     kept.splice(idx + 1, 1);
   }
   return kept;
+}
+
+const CHUNK_SILENCE_DB = -35;
+const CHUNK_MIN_SILENCE_SECONDS = 1.2;
+const CHUNK_PADDING_SECONDS = 0.2;
+/** Real pauses this frequent would mean re-loading the whisper model that many times over — an
+ *  extreme edge case; past it, fall back to one whisper call for the whole file. */
+const MAX_TRANSCRIBE_CHUNKS = 40;
+
+/**
+ * Complement of `silences` over [0, duration], padded a little into each silence so a chunk
+ * boundary doesn't clip the word right at its edge. Used to split audio into per-pause chunks
+ * before transcription (see transcribeCaptionsTask) — deliberately not `keptSegments`' silence
+ * *removal* semantics (that strips padding out of the kept audio for an edit; this wants the
+ * opposite, generous padding, since these chunks get transcribed, not spliced into a video).
+ */
+function speechChunks(silences: Segment[], duration: number): Segment[] {
+  const chunks: Segment[] = [];
+  let cursor = 0;
+  for (const s of silences) {
+    const end = Math.min(duration, s.start + CHUNK_PADDING_SECONDS);
+    if (end - cursor > 0.1) chunks.push({ start: cursor, end });
+    cursor = Math.max(cursor, s.end - CHUNK_PADDING_SECONDS);
+  }
+  if (duration - cursor > 0.1) chunks.push({ start: cursor, end: duration });
+  if (chunks.length === 0) chunks.push({ start: 0, end: duration });
+  return chunks.length <= MAX_TRANSCRIBE_CHUNKS ? chunks : [{ start: 0, end: duration }];
 }
 
 /**
@@ -726,27 +758,63 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
         const probe = await track(probeMedia(req.inputPath)).done;
         assertAlive();
         if (!probe?.hasVideo || !probe.duration) throw new Error('EDITOOLS_INVALID_FILE: no video stream');
-        if (probe.duration > config.maxCaptionSeconds) throw new Error('EDITOOLS_TOO_LONG');
+        const duration = probe.duration;
+        if (duration > config.maxCaptionSeconds) throw new Error('EDITOOLS_TOO_LONG');
 
         const model = modelPath('whisperModel');
         if (!model) throw new Error('EDITOOLS_ASR_MODEL_MISSING: whisper model file is missing');
+        const vadModel = modelPath('vad');
 
         // Extract a 16kHz mono WAV (whisper.cpp's expected input format).
         const wavPath = path.join(tempDir, 'audio.wav');
         await track(
           runFfmpeg(
             ['-i', req.inputPath, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wavPath],
-            probe.duration,
+            duration,
             withoutProgress(callbacks),
           ),
         ).done;
         assertAlive();
 
-        // Transcribe. whisper.cpp's own progress reporting is unreliable, so this
-        // step stays indeterminate (matches how the other pipelines treat helper passes).
-        await track(transcribe(wavPath, model, tempDir)).done;
+        // Split on real pauses before transcribing. whisper.cpp's own --vad merges every speech
+        // span it finds into one continuous decode buffer, discarding how long each gap actually
+        // was — token timestamps after the first real pause come back compressed to whatever
+        // padding is left, not the true pause length (confirmed empirically: a 2-second pause
+        // collapsed to ~400ms, throwing off every word after it). Chunking ourselves first, each
+        // chunk transcribed on its own knowing its own true start offset, sidesteps that; --vad
+        // still runs *within* each chunk since a single continuous speech run isn't affected.
+        const detectStderr = await track(
+          runFfmpegCapture([
+            '-i', wavPath,
+            '-af', `silencedetect=noise=${CHUNK_SILENCE_DB}dB:d=${CHUNK_MIN_SILENCE_SECONDS}`,
+            '-f', 'null', '-',
+          ]),
+        ).done;
         assertAlive();
-        const { words, language } = await readTranscript(tempDir);
+        const silences = parseSilences(detectStderr).filter((s) => s.end > 0 && s.start < duration);
+        const chunks = speechChunks(silences, duration);
+
+        // whisper.cpp's own progress reporting is unreliable, so this step stays indeterminate
+        // (matches how the other pipelines treat helper passes).
+        const words: CaptionWord[] = [];
+        let language: string | undefined;
+        for (const [i, chunk] of chunks.entries()) {
+          assertAlive();
+          const chunkWav = path.join(tempDir, `chunk-${i}.wav`);
+          await track(
+            runFfmpeg(
+              ['-i', wavPath, '-ss', String(chunk.start), '-t', String(chunk.end - chunk.start), '-c', 'copy', chunkWav],
+              chunk.end - chunk.start,
+              withoutProgress(callbacks),
+            ),
+          ).done;
+          assertAlive();
+          await track(transcribe(chunkWav, model, tempDir, vadModel, `chunk-${i}`)).done;
+          assertAlive();
+          const result = await readTranscript(tempDir, `chunk-${i}`);
+          language ??= result.language;
+          for (const w of result.words) words.push({ text: w.text, start: w.start + chunk.start, end: w.end + chunk.start });
+        }
         if (words.length === 0) throw new Error('EDITOOLS_NO_SPEECH_DETECTED');
         callbacks.onMeta?.({ captionWordCount: words.length, captionLanguage: language });
 

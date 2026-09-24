@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { AnalyzeResult } from '@editools/shared';
+import { COOKIE_BROWSERS, type AnalyzeResult } from '@editools/shared';
 import { config } from '../config';
 import { apiError, mapYtdlpError, stderrOf } from '../media/errors';
 import { analyzeMedia } from '../media/ytdlp';
@@ -8,6 +8,7 @@ import { assertSafeUrl, UrlGuardError } from '../security/urlGuard';
 
 const bodySchema = z.object({
   url: z.string().min(1).max(2048),
+  cookiesFromBrowser: z.enum(COOKIE_BROWSERS).optional(),
 });
 
 export function registerAnalyzeRoute(app: FastifyInstance): void {
@@ -25,7 +26,7 @@ export function registerAnalyzeRoute(app: FastifyInstance): void {
 
     let result: AnalyzeResult;
     try {
-      result = await analyzeMedia(url.toString());
+      result = await analyzeMedia(url.toString(), parsed.data.cookiesFromBrowser);
     } catch (err) {
       request.log.debug({ stderr: stderrOf(err) }, 'analyze failed');
       return reply.code(422).send(apiError(mapYtdlpError(stderrOf(err))));

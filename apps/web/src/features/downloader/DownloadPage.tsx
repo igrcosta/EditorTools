@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { OutputFormat } from '@editools/shared';
+import { COOKIE_BROWSERS, type CookieBrowser, type OutputFormat } from '@editools/shared';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ErrorMessage } from '../../components/ErrorMessage';
@@ -13,6 +13,7 @@ import { formatBytes, formatDuration } from '../../lib/format';
 import { useDownloader } from './useDownloader';
 
 const FORMAT_KEY = 'editools.downloader.format';
+const COOKIES_KEY = 'editools.downloader.cookiesFromBrowser';
 
 function loadFormat(): OutputFormat {
   try {
@@ -20,6 +21,15 @@ function loadFormat(): OutputFormat {
     return v === 'mp3' ? 'mp3' : 'mp4';
   } catch {
     return 'mp4';
+  }
+}
+
+function loadCookiesFromBrowser(): CookieBrowser | undefined {
+  try {
+    const v = localStorage.getItem(COOKIES_KEY);
+    return (COOKIE_BROWSERS as readonly string[]).includes(v ?? '') ? (v as CookieBrowser) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -31,6 +41,8 @@ export function DownloadPage({ embedded = false }: { embedded?: boolean }) {
   const [output, setOutput] = useState<OutputFormat>(loadFormat);
   const [height, setHeight] = useState<number | undefined>(undefined);
   const [desktop, setDesktop] = useState<DesktopSettings | null>(null);
+  const [cookiesFromBrowser, setCookiesFromBrowser] = useState<CookieBrowser | undefined>(loadCookiesFromBrowser);
+  const [showCookies, setShowCookies] = useState(false);
 
   useEffect(() => {
     try {
@@ -39,6 +51,21 @@ export function DownloadPage({ embedded = false }: { embedded?: boolean }) {
       // per-browser convenience only
     }
   }, [output]);
+
+  useEffect(() => {
+    try {
+      if (cookiesFromBrowser) localStorage.setItem(COOKIES_KEY, cookiesFromBrowser);
+      else localStorage.removeItem(COOKIES_KEY);
+    } catch {
+      // per-browser convenience only
+    }
+  }, [cookiesFromBrowser]);
+
+  // A bot-check wall is exactly what this option is for — surface it automatically instead of
+  // making the user go find it after already reading the error.
+  useEffect(() => {
+    if (dl.errorCode === 'bot_check' || dl.errorCode === 'cookies_browser_locked') setShowCookies(true);
+  }, [dl.errorCode]);
 
   useEffect(() => {
     void api.getDesktopSettings().then(setDesktop);
@@ -70,7 +97,7 @@ export function DownloadPage({ embedded = false }: { embedded?: boolean }) {
 
   const onAnalyze = (e: FormEvent) => {
     e.preventDefault();
-    if (url.trim() && !dl.analyzing && !jobActive) void dl.analyze(url.trim());
+    if (url.trim() && !dl.analyzing && !jobActive) void dl.analyze(url.trim(), cookiesFromBrowser);
   };
 
   const onReset = () => {
@@ -113,6 +140,36 @@ export function DownloadPage({ embedded = false }: { embedded?: boolean }) {
           {dl.analyzing ? t('analyzing') : t('analyze')}
         </Button>
       </form>
+
+      <div className="text-xs">
+        <button
+          type="button"
+          onClick={() => setShowCookies((v) => !v)}
+          className="cursor-pointer text-zinc-500 hover:text-zinc-300"
+        >
+          {t('cookies.toggle')}
+        </button>
+        {showCookies && (
+          <div className="mt-2 space-y-1.5 rounded-md border border-white/10 p-3">
+            <label className="flex flex-wrap items-center gap-2">
+              <span className="text-zinc-400">{t('cookies.label')}</span>
+              <select
+                value={cookiesFromBrowser ?? ''}
+                onChange={(e) => setCookiesFromBrowser((e.target.value || undefined) as CookieBrowser | undefined)}
+                className="h-8 cursor-pointer rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100 focus:border-accent focus:outline-none"
+              >
+                <option value="">{t('cookies.none')}</option>
+                {COOKIE_BROWSERS.map((b) => (
+                  <option key={b} value={b}>
+                    {t(`cookies.browser.${b}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {cookiesFromBrowser && <p className="text-zinc-500">{t('cookies.hint')}</p>}
+          </div>
+        )}
+      </div>
 
       {dl.errorCode && (
         <ErrorMessage>

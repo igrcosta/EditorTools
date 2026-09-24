@@ -68,14 +68,18 @@ Free-tier caveats: the instance sleeps after ~15 min idle (first request takes ~
 
 ### Getting past YouTube's anti-bot wall (cookies)
 
-YouTube blocks most datacenter IPs with a "confirm you're not a bot" wall. To authenticate the hosted instance:
+YouTube's "confirm you're not a bot" wall isn't just a datacenter-IP thing anymore — it now hits plenty of ordinary residential connections too, desktop app included. Two ways to authenticate a request, matching where the server actually runs:
+
+**Desktop app** — the Downloader has a built-in "Having trouble downloading?" option that pulls cookies straight from a browser already logged into YouTube on the same machine (Chrome, Edge, Firefox, Brave), no manual export needed. Close that browser first: Chrome/Edge lock their cookie database while running, and yt-dlp can't read it until they're closed.
+
+**Hosted (Render) deploy** — there's no user browser on the server machine, so use a `cookies.txt` file instead:
 
 1. Create a **throwaway Google account** (do NOT use your personal account — automated use from a server IP can get an account flagged).
 2. Log into YouTube with it in your browser, then export cookies with a "cookies.txt" extension (Netscape format), e.g. *Get cookies.txt LOCALLY*.
 3. On Render: service → **Environment → Secret Files** → add a file named `cookies.txt` with that content (mounted at `/etc/secrets/cookies.txt`).
 4. Add env var `COOKIES_FILE=/etc/secrets/cookies.txt` and redeploy.
 
-Cookies are read by yt-dlp only, never logged, and never leave the server. Refresh the file when it expires (typically weeks).
+Either way, cookies are read by yt-dlp only, never logged, and never leave the server. Refresh a `cookies.txt` file when it expires (typically weeks).
 
 ## Legal note
 

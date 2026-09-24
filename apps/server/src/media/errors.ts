@@ -3,7 +3,10 @@ import type { ApiError, ErrorCode } from '@editools/shared';
 const PATTERNS: Array<[RegExp, ErrorCode]> = [
   [/unsupported url/i, 'unsupported_url'],
   [/is not a valid url/i, 'invalid_url'],
-  // Anti-bot wall (typically hit from datacenter IPs) — must match before the generic "sign in" pattern.
+  // Chrome/Edge lock their cookie database while running — --cookies-from-browser can't read it
+  // until the user closes that browser. Must match before the generic bot-check pattern below.
+  [/could not copy .*cookie database|could not find .*cookies database|permission.+cookie/i, 'cookies_browser_locked'],
+  // Anti-bot wall — not just datacenter IPs, YouTube's rollout now hits residential connections too.
   [/confirm you.?re not a bot|not a robot|use --cookies|http error 429|too many requests/i, 'bot_check'],
   [/private video|sign in|login required|members-only|age.?restrict|confirm your age/i, 'restricted'],
   [/video unavailable|has been removed|does not exist|account.+terminated|no longer available/i, 'unavailable'],
@@ -37,7 +40,9 @@ const MESSAGES: Record<ErrorCode, string> = {
   restricted: 'This media is private or requires a login.',
   unavailable: 'This media is unavailable or has been removed.',
   geo_blocked: 'This media is not available in this region.',
-  bot_check: "The platform is blocking our server with an anti-bot check. Try again later — some sources restrict cloud servers.",
+  bot_check:
+    "The platform wants to confirm you're not a bot. Try enabling \"Use cookies from your browser\" below, or try again later.",
+  cookies_browser_locked: 'Close that browser first — it locks its cookie file while running. Then try again.',
   too_long: 'This media is too long to process.',
   too_large: 'This file is too large to process.',
   busy: 'Too many downloads are running. Try again in a moment.',

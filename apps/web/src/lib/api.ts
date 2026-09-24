@@ -1,6 +1,7 @@
 import type {
   AnalyzeResult,
   ApiError,
+  CookieBrowser,
   DownloadRequest,
   DownloadStarted,
   FeaturesResponse,
@@ -47,7 +48,8 @@ export interface DesktopSettings {
 export const api = {
   /** Which optional (desktop-only) tools this server can run. */
   getFeatures: () => request<FeaturesResponse>('/api/features'),
-  analyze: (url: string) => request<AnalyzeResult>('/api/analyze', jsonPost({ url })),
+  analyze: (url: string, cookiesFromBrowser?: CookieBrowser) =>
+    request<AnalyzeResult>('/api/analyze', jsonPost({ url, cookiesFromBrowser })),
   /** Multipart upload to a tool endpoint (converter/audio); returns the created job. */
   uploadAndStart: (path: string, form: FormData) =>
     request<DownloadStarted>(path, { method: 'POST', body: form }),

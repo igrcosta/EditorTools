@@ -11,6 +11,9 @@ export const MODEL_FILES = {
   // "small" (not "base"): meaningfully tighter word-level timestamps for karaoke captions —
   // base's -ml 1 -sow word splitting drifts noticeably, small's is visibly closer.
   whisperModel: 'ggml-small.bin',
+  // Optional: pre-filters real speech before transcription (see whisper.ts). Captions still
+  // work without it — transcribe() just skips the --vad flags when it's missing.
+  vad: 'ggml-silero-v6.2.0.bin',
 } as const;
 
 export function modelPath(name: keyof typeof MODEL_FILES): string | null {

@@ -39,6 +39,14 @@ const MODELS = [
     sha256: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
     dest: 'models/ggml-small.bin',
   },
+  {
+    // Silero VAD (MIT), GGML-converted by the whisper.cpp project itself — pre-filters real
+    // speech before transcription (see whisper.ts's transcribe()): fixes whisper hallucinating
+    // text over silence/music, and gives cleaner segment boundaries than whisper's own decoder.
+    url: 'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin',
+    sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987',
+    dest: 'models/ggml-silero-v6.2.0.bin',
+  },
   // Custom caption template fonts (see apps/server/src/media/captions.ts's CAPTION_FONT_FILES).
   // All OFL (SIL Open Font License) via the google/fonts repo — the only fonts a custom caption
   // template can use, since libass needs an actual bundled file, not the user's system fonts.

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import youtubedlPkg from 'youtube-dl-exec';
 import ffmpegStatic from 'ffmpeg-static';
-import type { AnalyzeResult, OutputFormat, QualityOption } from '@editools/shared';
+import type { AnalyzeResult, CookieBrowser, OutputFormat, QualityOption } from '@editools/shared';
 import { config } from '../config';
 
 // Packaged builds (desktop app) point at bundled binaries via env vars.
@@ -13,13 +13,23 @@ const baseFlags = {
   noPlaylist: true,
   noWarnings: true,
   ...(ffmpegPath ? { ffmpegLocation: ffmpegPath } : {}),
-  ...(config.cookiesFile ? { cookies: config.cookiesFile } : {}),
 };
 
-export async function analyzeMedia(url: string): Promise<AnalyzeResult> {
+/**
+ * `cookiesFromBrowser` (the caller's own choice, e.g. from a bot-check retry) takes priority
+ * over the server-wide `COOKIES_FILE` secret (the hosted-deploy workaround, see README) — yt-dlp
+ * rejects being given both `--cookies` and `--cookies-from-browser` at once.
+ */
+function cookieFlags(cookiesFromBrowser?: CookieBrowser | null): Record<string, unknown> {
+  if (cookiesFromBrowser) return { cookiesFromBrowser };
+  if (config.cookiesFile) return { cookies: config.cookiesFile };
+  return {};
+}
+
+export async function analyzeMedia(url: string, cookiesFromBrowser?: CookieBrowser | null): Promise<AnalyzeResult> {
   const info = (await youtubedl(
     url,
-    { ...baseFlags, dumpSingleJson: true, skipDownload: true },
+    { ...baseFlags, ...cookieFlags(cookiesFromBrowser), dumpSingleJson: true, skipDownload: true },
     { timeout: config.analyzeTimeoutMs },
   )) as Record<string, unknown>;
 
@@ -73,11 +83,12 @@ export interface DownloadCallbacks {
 }
 
 export function runDownload(
-  opts: { url: string; output: OutputFormat; height?: number; tempDir: string },
+  opts: { url: string; output: OutputFormat; height?: number; cookiesFromBrowser?: CookieBrowser | null; tempDir: string },
   callbacks: DownloadCallbacks,
 ): DownloadHandle {
   const flags: Record<string, unknown> = {
     ...baseFlags,
+    ...cookieFlags(opts.cookiesFromBrowser),
     newline: true,
     output: path.join(opts.tempDir, '%(id)s.%(ext)s'),
     matchFilter: `duration <=? ${config.maxDurationSeconds}`,
