@@ -9,9 +9,15 @@ const NAV = [
   { to: '/captions', key: 'captions', icon: 'fi-rr-subtitles' },
 ] as const;
 
+// Face Tracking and Captions need real side-by-side room (video preview + a side/right panel) —
+// every other tool page is a narrow single-column form and stays at max-w-3xl.
+const WIDE_ROUTES = ['/video', '/captions'];
+
 export function Layout() {
   const { t } = useTranslation();
-  const isHome = useLocation().pathname === '/';
+  const pathname = useLocation().pathname;
+  const isHome = pathname === '/';
+  const isWide = WIDE_ROUTES.includes(pathname);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -41,7 +47,13 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main className={isHome ? 'flex flex-1 flex-col' : 'mx-auto w-full max-w-3xl flex-1 px-4 py-10'}>
+      <main
+        className={
+          isHome
+            ? 'flex flex-1 flex-col'
+            : `mx-auto w-full flex-1 px-4 py-10 ${isWide ? 'max-w-5xl' : 'max-w-3xl'}`
+        }
+      >
         <Outlet />
       </main>
       <footer className="z-20 border-t border-white/10">

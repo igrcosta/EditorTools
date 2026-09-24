@@ -55,18 +55,45 @@ export function FaceTrackPage() {
   };
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader title={t('title')} description={t('description')} />
+    <div className="w-full space-y-6">
+      {/* Title on the left, resolution picker on the right — one header row, same as the drop target. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader title={t('title')} description={t('description')} />
+        {file && (
+          <div>
+            <p className="mb-2 text-right text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {t('aspectTitle')}
+            </p>
+            <div className="flex gap-2">
+              {TRACK_ASPECTS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAspect(a)}
+                  disabled={busy}
+                  className={`cursor-pointer rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    aspect === a
+                      ? 'bg-accent text-white'
+                      : 'border border-white/10 text-zinc-400 hover:border-white/25'
+                  }`}
+                >
+                  {t(`aspect.${a}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {features && !features.faceTracking ? (
         <DesktopOnlyNotice />
       ) : (
         <>
           {!file && (
-            <>
+            <div className="mx-auto max-w-xl space-y-2">
               <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept={ACCEPT} onFile={onFile} />
               <p className="text-xs text-zinc-500">{t('hint')}</p>
-            </>
+            </div>
           )}
 
           {runner.errorCode && (
@@ -76,7 +103,7 @@ export function FaceTrackPage() {
           )}
 
           {file && (
-            <Card className="space-y-4 divide-y divide-white/10">
+            <Card className="space-y-6">
               <div className="flex items-center justify-between gap-4">
                 <p className="min-w-0 truncate text-sm text-zinc-300">
                   {file.name} <span className="text-zinc-500">· {formatBytes(file.size)}</span>
@@ -94,30 +121,10 @@ export function FaceTrackPage() {
                 </button>
               </div>
 
-              <div>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('aspectTitle')}</p>
-                <div className="flex gap-2">
-                  {TRACK_ASPECTS.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => setAspect(a)}
-                      disabled={busy}
-                      className={`flex-1 cursor-pointer rounded-md px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                        aspect === a
-                          ? 'bg-accent text-white'
-                          : 'border border-white/10 text-zinc-400 hover:border-white/25'
-                      }`}
-                    >
-                      {t(`aspect.${a}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {localUrl && !done && (
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('zoomTitle')}</p>
+              {/* Video + zoom box on the left, explanation and camera smoothness beside it on the right —
+                  the side column stands alone (no empty left column) once there's no preview to show. */}
+              <div className={localUrl && !done ? 'grid gap-6 lg:grid-cols-[1fr_240px]' : ''}>
+                {localUrl && !done && (
                   <ZoomFrame
                     videoUrl={localUrl}
                     aspect={aspect}
@@ -126,25 +133,35 @@ export function FaceTrackPage() {
                     label={t('zoomLabel')}
                     disabled={busy}
                   />
-                  <p className="mt-2 text-xs text-zinc-500">{t('zoomHint')}</p>
-                </div>
-              )}
+                )}
 
-              <div>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('smoothingTitle')}</p>
-                <Pills options={TRACK_SMOOTHING} value={smoothing} onChange={setSmoothing} disabled={busy} label={(s) => t(`smoothing.${s}`)} />
+                <div className="max-w-xs space-y-4">
+                  <p className="text-sm text-zinc-400">{t('zoomHint')}</p>
+                  <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('smoothingTitle')}</p>
+                    <Pills
+                      options={TRACK_SMOOTHING}
+                      value={smoothing}
+                      onChange={setSmoothing}
+                      disabled={busy}
+                      label={(s) => t(`smoothing.${s}`)}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {!busy && !done && (
-                <Button className="w-full !text-white" onClick={process}>
-                  {t('process')}
-                </Button>
-              )}
-              {runner.starting && (
-                <div className="flex items-center gap-2 text-sm text-zinc-400">
-                  <Spinner /> {t('uploading')}
-                </div>
-              )}
+              <div className="flex items-center justify-end gap-3">
+                {runner.starting && (
+                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                    <Spinner /> {t('uploading')}
+                  </div>
+                )}
+                {!busy && !done && (
+                  <Button className="!text-white" onClick={process}>
+                    {t('process')}
+                  </Button>
+                )}
+              </div>
 
               <JobStatus
                 starting={false}

@@ -17,6 +17,8 @@ Binaries and models fetched into `vendor/` by `scripts/fetch-vendor.mjs` and shi
 | Bebas Neue | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/bebasneue |
 | Poppins | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/poppins |
 | Archivo Black | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/archivoblack |
+| Luckiest Guy | Custom caption template font | Apache-2.0 | https://github.com/google/fonts/tree/main/apache/luckiestguy |
+| Bangers | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/bangers |
 
 Not used on purpose (licensing): BRIA RMBG-1.4/2.0 (non-commercial), `@imgly/background-removal` (AGPL-3.0), `upscayl-ncnn` (AGPL-3.0).
 

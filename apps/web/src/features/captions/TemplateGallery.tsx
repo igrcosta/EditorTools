@@ -38,6 +38,8 @@ const CUSTOM_FONT_FAMILY: Record<CustomCaptionStyle['font'], string> = {
   'bebas-neue': "'Bebas Neue'",
   poppins: 'Poppins',
   'archivo-black': "'Archivo Black'",
+  'luckiest-guy': "'Luckiest Guy'",
+  bangers: 'Bangers',
 };
 
 function customPreviewStyle(style: CustomCaptionStyle): PreviewStyle {

@@ -62,6 +62,18 @@ const MODELS = [
     sha256: 'dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180',
     dest: 'fonts/ArchivoBlack-Regular.ttf',
   },
+  {
+    // Apache-2.0, not OFL (google/fonts ships it under apache/, not ofl/) — still a permissive,
+    // commercial-friendly license.
+    url: 'https://raw.githubusercontent.com/google/fonts/main/apache/luckiestguy/LuckiestGuy-Regular.ttf',
+    sha256: 'cfbdd68a039f92df51cf3721506af6242e64594c6325fe0bedbeff3fe385d980',
+    dest: 'fonts/LuckiestGuy-Regular.ttf',
+  },
+  {
+    url: 'https://raw.githubusercontent.com/google/fonts/main/ofl/bangers/Bangers-Regular.ttf',
+    sha256: '4160a7311de9342674cce9160cde9fcbb30f48190397d86ff1b70b455af65824',
+    dest: 'fonts/Bangers-Regular.ttf',
+  },
 ];
 
 /** whisper.cpp (MIT) CLI — nightly "b" build tag, which is where prebuilt binaries are published. */

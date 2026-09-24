@@ -120,8 +120,15 @@ export const CAPTION_SCALE_MIN = 0.5;
 export const CAPTION_SCALE_MAX = 2;
 export const CAPTION_SCALE_DEFAULT = 1;
 
-/** Curated set of bundled, license-cleared (OFL) fonts — the only ones a custom template can use. */
-export const CAPTION_FONTS = ['anton', 'bebas-neue', 'poppins', 'archivo-black'] as const;
+/** Curated set of bundled, license-cleared fonts — the only ones a custom template can use. */
+export const CAPTION_FONTS = [
+  'anton',
+  'bebas-neue',
+  'poppins',
+  'archivo-black',
+  'luckiest-guy',
+  'bangers',
+] as const;
 export type CaptionFont = (typeof CAPTION_FONTS)[number];
 
 /** A user-built template: replaces a fixed preset with the caller's own font/colors/outline/shadow. */

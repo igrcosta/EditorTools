@@ -11,7 +11,7 @@
 }
 
 /* Custom caption template fonts — mirrors apps/server/src/media/captions.ts's CAPTION_FONT_FILES
-   (same 4 files, same family names) so the browser preview matches the actual burned-in render. */
+   (same files, same family names) so the browser preview matches the actual burned-in render. */
 @font-face {
   font-family: 'Anton';
   src: url('/fonts/captions/Anton-Regular.ttf') format('truetype');
@@ -31,6 +31,16 @@
 @font-face {
   font-family: 'Archivo Black';
   src: url('/fonts/captions/ArchivoBlack-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Luckiest Guy';
+  src: url('/fonts/captions/LuckiestGuy-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Bangers';
+  src: url('/fonts/captions/Bangers-Regular.ttf') format('truetype');
   font-display: swap;
 }
 

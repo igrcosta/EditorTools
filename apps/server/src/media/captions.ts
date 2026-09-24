@@ -146,6 +146,9 @@ export const CAPTION_FONT_FILES: Record<CaptionFont, { family: string; file: str
   'bebas-neue': { family: 'Bebas Neue', file: 'BebasNeue-Regular.ttf' },
   poppins: { family: 'Poppins', file: 'Poppins-Bold.ttf' },
   'archivo-black': { family: 'Archivo Black', file: 'ArchivoBlack-Regular.ttf' },
+  // Chunky, rounded, high-contrast — the two fonts behind most "MrBeast style" caption templates.
+  'luckiest-guy': { family: 'Luckiest Guy', file: 'LuckiestGuy-Regular.ttf' },
+  bangers: { family: 'Bangers', file: 'Bangers-Regular.ttf' },
 };
 
 function resolveStyle(preset: CaptionPreset, custom: CustomCaptionStyle | null): PresetStyle {

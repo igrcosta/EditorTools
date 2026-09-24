@@ -8,6 +8,8 @@ const FONT_LABEL: Record<CaptionFont, string> = {
   'bebas-neue': 'Bebas Neue',
   poppins: 'Poppins',
   'archivo-black': 'Archivo Black',
+  'luckiest-guy': 'Luckiest Guy',
+  bangers: 'Bangers',
 };
 
 const FONT_FAMILY: Record<CaptionFont, string> = {
@@ -15,6 +17,8 @@ const FONT_FAMILY: Record<CaptionFont, string> = {
   'bebas-neue': "'Bebas Neue'",
   poppins: 'Poppins',
   'archivo-black': "'Archivo Black'",
+  'luckiest-guy': "'Luckiest Guy'",
+  bangers: 'Bangers',
 };
 
 function outlineShadow(color: string): string {

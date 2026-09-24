@@ -149,22 +149,45 @@ export function CaptionsPage() {
   const sampleText = words && words.length > 0 ? words.slice(0, 3).map((w) => w.text).join(' ') : t('samplePlaceholder');
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader title={t('title')} description={t('description')} />
+    <div className="w-full space-y-6">
+      {/* Title on the left, template picker on the right — same header-row pattern as Face Tracking. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader title={t('title')} description={t('description')} />
+        {words !== null && (
+          <div className={creatingTemplate ? 'w-full max-w-sm' : 'max-w-sm'}>
+            <p className="mb-2 text-right text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {t('templateTitle')}
+            </p>
+            {creatingTemplate ? (
+              <CustomTemplateEditor onSave={onSaveTemplate} onCancel={() => setCreatingTemplate(false)} />
+            ) : (
+              <TemplateGallery
+                customTemplates={customTemplates}
+                selectedKey={selectedKey}
+                onSelect={setSelectedKey}
+                onCreateNew={() => setCreatingTemplate(true)}
+                onDeleteCustom={onDeleteTemplate}
+                disabled={renderBusy}
+                label={(p) => t(`preset.${p}`)}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       {features && !features.captions ? (
         <DesktopOnlyNotice />
       ) : (
         <>
           {!file && (
-            <>
+            <div className="mx-auto max-w-xl space-y-2">
               <Dropzone label={t('dropLabel')} hint={t('dropHint')} accept={ACCEPT} onFile={onFile} />
               <p className="text-xs text-zinc-500">{t('hint')}</p>
-            </>
+            </div>
           )}
 
           {file && (
-            <Card className="space-y-4 divide-y divide-white/10">
+            <Card className="space-y-6">
               <div className="flex items-center justify-between gap-4">
                 <p className="min-w-0 truncate text-sm text-zinc-300">
                   {file.name} <span className="text-zinc-500">· {formatBytes(file.size)}</span>
@@ -180,7 +203,7 @@ export function CaptionsPage() {
               </div>
 
               {words === null ? (
-                <div className="space-y-3">
+                <div className="mx-auto max-w-xl space-y-3">
                   {localUrl && (
                     <video src={localUrl} controls className="max-h-64 w-full rounded-md bg-black" />
                   )}
@@ -203,90 +226,77 @@ export function CaptionsPage() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('templateTitle')}</p>
-                    {creatingTemplate ? (
-                      <CustomTemplateEditor onSave={onSaveTemplate} onCancel={() => setCreatingTemplate(false)} />
-                    ) : (
-                      <TemplateGallery
-                        customTemplates={customTemplates}
-                        selectedKey={selectedKey}
-                        onSelect={setSelectedKey}
-                        onCreateNew={() => setCreatingTemplate(true)}
-                        onDeleteCustom={onDeleteTemplate}
-                        disabled={renderBusy}
-                        label={(p) => t(`preset.${p}`)}
-                      />
+                  {/* Video + drag box on the left, word/timing editor beside it on the right — the
+                      editor stands alone (no empty left column) once there's no preview to show. */}
+                  <div className={localUrl && !renderDone ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : ''}>
+                    {localUrl && !renderDone && (
+                      <div>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
+                        <CaptionFrame
+                          videoUrl={localUrl}
+                          positionX={positionX}
+                          positionY={positionY}
+                          scale={scale}
+                          onPositionChange={(x, y) => {
+                            setPositionX(x);
+                            setPositionY(y);
+                          }}
+                          onScaleChange={setScale}
+                          sampleText={sampleText}
+                          disabled={renderBusy}
+                        />
+                      </div>
                     )}
-                  </div>
 
-                  {localUrl && !renderDone && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
-                      <CaptionFrame
-                        videoUrl={localUrl}
-                        positionX={positionX}
-                        positionY={positionY}
-                        scale={scale}
-                        onPositionChange={(x, y) => {
-                          setPositionX(x);
-                          setPositionY(y);
-                        }}
-                        onScaleChange={setScale}
-                        sampleText={sampleText}
-                        disabled={renderBusy}
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{t('editTitle')}</p>
-                      <p className="text-xs text-zinc-500">
-                        {t('wordsFound', { count: wordCount ?? words.length })}
-                        {language && ` · ${t('languageDetected', { language })}`}
-                      </p>
-                    </div>
-                    <p className="text-xs text-zinc-500">{t('editHint')}</p>
-                    <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-zinc-800 p-2">
-                      {words.map((word, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={word.text}
-                            onChange={(e) => updateWord(i, { text: e.target.value })}
-                            disabled={renderBusy}
-                            className="h-8 min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
-                          />
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            value={word.start}
-                            onChange={(e) => updateWord(i, { start: Number(e.target.value) })}
-                            disabled={renderBusy}
-                            className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
-                          />
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            value={word.end}
-                            onChange={(e) => updateWord(i, { end: Number(e.target.value) })}
-                            disabled={renderBusy}
-                            className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => deleteWord(i)}
-                            disabled={renderBusy}
-                            aria-label={t('deleteWord')}
-                            className="shrink-0 cursor-pointer text-zinc-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ))}
+                    <div className="space-y-2 rounded-md border border-white/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{t('editTitle')}</p>
+                        <p className="text-xs text-zinc-500">
+                          {t('wordsFound', { count: wordCount ?? words.length })}
+                          {language && ` · ${t('languageDetected', { language })}`}
+                        </p>
+                      </div>
+                      <p className="text-xs text-zinc-500">{t('editHint')}</p>
+                      <div className="max-h-80 space-y-1 overflow-y-auto">
+                        {words.map((word, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={word.text}
+                              onChange={(e) => updateWord(i, { text: e.target.value })}
+                              disabled={renderBusy}
+                              className="h-8 min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
+                            />
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={word.start}
+                              onChange={(e) => updateWord(i, { start: Number(e.target.value) })}
+                              disabled={renderBusy}
+                              className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
+                            />
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={word.end}
+                              onChange={(e) => updateWord(i, { end: Number(e.target.value) })}
+                              disabled={renderBusy}
+                              className="h-8 w-16 rounded border border-zinc-700 bg-zinc-900 px-1 text-right text-xs text-zinc-100 focus:border-accent focus:outline-none disabled:opacity-50"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => deleteWord(i)}
+                              disabled={renderBusy}
+                              aria-label={t('deleteWord')}
+                              className="shrink-0 cursor-pointer text-zinc-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -296,16 +306,18 @@ export function CaptionsPage() {
                     </ErrorMessage>
                   )}
 
-                  {!renderBusy && !renderDone && (
-                    <Button className="w-full" onClick={onGenerate} disabled={words.length === 0}>
-                      {t('generate')}
-                    </Button>
-                  )}
-                  {renderRunner.starting && (
-                    <div className="flex items-center gap-2 text-sm text-zinc-400">
-                      <Spinner /> {t('uploading')}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-end gap-3">
+                    {renderRunner.starting && (
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        <Spinner /> {t('uploading')}
+                      </div>
+                    )}
+                    {!renderBusy && !renderDone && (
+                      <Button onClick={onGenerate} disabled={words.length === 0}>
+                        {t('generate')}
+                      </Button>
+                    )}
+                  </div>
 
                   <JobStatus
                     starting={false}
