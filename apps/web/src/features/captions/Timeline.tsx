@@ -103,6 +103,20 @@ export function Timeline({
     else videoEl.pause();
   };
 
+  // Spacebar plays/pauses, same as any video editor — but not while the user is typing (a word's
+  // text, its start/end, a template name) since a space there needs to reach the text field.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || disabled || !videoEl) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      e.preventDefault();
+      togglePlay();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [videoEl, disabled]);
+
   const zoom = (factor: number) => {
     setPxPerSec((prev) => Math.min(MAX_PX_PER_SEC, Math.max(MIN_PX_PER_SEC, Math.round(prev * factor))));
   };
@@ -167,7 +181,7 @@ export function Timeline({
   const tickCount = duration > 0 ? Math.ceil(duration / interval) + 1 : 0;
 
   return (
-    <div className="space-y-2 rounded-md border border-white/10 p-3">
+    <div className="min-w-0 space-y-2 rounded-md border border-white/10 p-3">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -212,7 +226,7 @@ export function Timeline({
         </div>
       </div>
 
-      <div ref={scrollRef} className="touch-none overflow-x-auto overflow-y-hidden rounded border border-white/10 bg-zinc-900/60">
+      <div ref={scrollRef} className="min-w-0 touch-none overflow-x-auto overflow-y-hidden rounded border border-white/10 bg-zinc-900/60">
         <div
           ref={trackRef}
           className="relative select-none"

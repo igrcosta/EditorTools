@@ -237,7 +237,7 @@ export function CaptionsPage() {
                       there's no preview to show. */}
                   <div className={localUrl && !renderDone ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : ''}>
                     {localUrl && !renderDone && (
-                      <div className="space-y-3">
+                      <div className="min-w-0 space-y-3">
                         <div>
                           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">{t('positionTitle')}</p>
                           <CaptionFrame
