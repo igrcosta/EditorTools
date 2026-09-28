@@ -38,6 +38,7 @@ interface TranscribeResult {
 }
 
 const DEFAULT_FPS = 30;
+const NEW_WORD_DURATION = 0.4;
 
 export function CaptionsPage() {
   const { t } = useTranslation('captions');
@@ -155,6 +156,25 @@ export function CaptionsPage() {
 
   const updateWord = (index: number, patch: Partial<CaptionWord>) => {
     setWords((prev) => (prev ? prev.map((w, i) => (i === index ? { ...w, ...patch } : w)) : prev));
+  };
+
+  // Timing here is just a starting point — drag it into place on the timeline after. Slots into
+  // the gap right after `afterIndex` (-1 inserts before the very first word), capped to whatever
+  // room the neighboring word(s) leave so it doesn't silently swallow real speech.
+  const addWord = (afterIndex: number) => {
+    setWords((prev) => {
+      if (!prev) return prev;
+      const prevWord = prev[afterIndex];
+      const nextWord = prev[afterIndex + 1];
+      const start = prevWord ? prevWord.end : Math.max(0, (nextWord?.start ?? NEW_WORD_DURATION) - NEW_WORD_DURATION);
+      const cap = nextWord ? nextWord.start : duration || start + NEW_WORD_DURATION;
+      const end = Math.max(Math.min(start + NEW_WORD_DURATION, cap), start + 0.05);
+      const inserted: CaptionWord = { text: t('newWordPlaceholder'), start, end };
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, inserted);
+      return next;
+    });
+    setSelectedWord(afterIndex + 1);
   };
 
   const deleteWord = (index: number) => {
@@ -297,6 +317,16 @@ export function CaptionsPage() {
                       </div>
                       <p className="text-xs text-zinc-500">{t('editHint')}</p>
                       <div className="max-h-80 space-y-1 overflow-y-auto">
+                        {words.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => addWord(-1)}
+                            disabled={renderBusy}
+                            className="w-full cursor-pointer rounded border border-dashed border-white/15 py-2 text-xs text-zinc-500 hover:border-accent/50 hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            + {t('addWord')}
+                          </button>
+                        )}
                         {words.map((word, i) => (
                           <div
                             key={i}
@@ -334,9 +364,20 @@ export function CaptionsPage() {
                             />
                             <button
                               type="button"
+                              onClick={() => addWord(i)}
+                              disabled={renderBusy}
+                              aria-label={t('addWordAfter')}
+                              title={t('addWordAfter')}
+                              className="shrink-0 cursor-pointer text-zinc-500 hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              +
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => deleteWord(i)}
                               disabled={renderBusy}
                               aria-label={t('deleteWord')}
+                              title={t('deleteWord')}
                               className="shrink-0 cursor-pointer text-zinc-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               &times;
@@ -344,6 +385,16 @@ export function CaptionsPage() {
                           </div>
                         ))}
                       </div>
+                      {words.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => addWord(words.length - 1)}
+                          disabled={renderBusy}
+                          className="w-full cursor-pointer rounded border border-dashed border-white/15 py-1.5 text-xs text-zinc-500 hover:border-accent/50 hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          + {t('addWord')}
+                        </button>
+                      )}
                     </div>
                   </div>
 

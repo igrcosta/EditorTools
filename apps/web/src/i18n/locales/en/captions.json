@@ -10,8 +10,11 @@
   "wordsFound": "{{count}} words transcribed",
   "languageDetected": "detected: {{language}}",
   "editTitle": "Edit the transcript",
-  "editHint": "Fix any words the transcription got wrong, adjust timing (in seconds), or remove a word.",
+  "editHint": "Fix any words the transcription got wrong, add a missed word or remove one, then drag it into place on the timeline below.",
   "deleteWord": "Remove word",
+  "addWord": "Add word",
+  "addWordAfter": "Add word after this one",
+  "newWordPlaceholder": "word",
   "templateTitle": "Template",
   "preset": {
     "karaoke": "Karaoke highlight"
