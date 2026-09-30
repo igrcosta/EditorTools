@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import type { CaptionWord } from '@editools/shared';
 
 interface Props {
-  videoEl: HTMLVideoElement | null;
+  videoEl: HTMLMediaElement | null;
   currentTime: number;
   duration: number;
   playing: boolean;

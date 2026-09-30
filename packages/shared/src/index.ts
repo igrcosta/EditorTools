@@ -79,6 +79,45 @@ export const SILENCE_MODES = ['off', 'gentle', 'balanced', 'aggressive'] as cons
 export type SilenceMode = (typeof SILENCE_MODES)[number];
 
 // ---------------------------------------------------------------------------
+// Silence cut / trim timeline
+// ---------------------------------------------------------------------------
+
+export interface TimelineSegment {
+  start: number;
+  end: number;
+}
+
+export interface WaveformPeaks {
+  /** [min0,max0,min1,max1,...] normalized to -1..1, one pair per bucket. */
+  values: number[];
+  bucketSeconds: number;
+}
+
+export interface ThumbnailFrame {
+  /** Seconds into the clip this frame was taken. */
+  at: number;
+  /** data:image/jpeg;base64,... */
+  dataUrl: string;
+}
+
+/** Stage 1 result of the timeline tool — everything needed to render the editable timeline. */
+export interface TimelineAnalysis {
+  duration: number;
+  hasVideo: boolean;
+  hasAudio: boolean;
+  width: number;
+  height: number;
+  peaks: WaveformPeaks | null;
+  thumbnails: ThumbnailFrame[];
+  /** Silence ranges detected at the requested mode/threshold. */
+  silences: TimelineSegment[];
+  /** Complement of `silences` — the starting point for the editable kept-segment list. */
+  kept: TimelineSegment[];
+  /** Effective silencedetect threshold used (preset or calibrated from a noise sample), in dB. */
+  noiseDb?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Image tools
 // ---------------------------------------------------------------------------
 

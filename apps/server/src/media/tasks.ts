@@ -13,11 +13,15 @@ import type {
   NoiseLevel,
   OutputFormat,
   SilenceMode,
+  ThumbnailFrame,
+  TimelineAnalysis,
+  TimelineSegment,
   TrackAspect,
   TrackSmoothing,
   UpscaleModel,
   UpscaleOutput,
   UpscaleScale,
+  WaveformPeaks,
 } from '@editools/shared';
 import { config } from '../config';
 import { ISNET_SIZE, predictAlphaMask } from './background';
@@ -35,6 +39,7 @@ import {
 } from './facetrack';
 import { modelPath } from './features';
 import {
+  parseProbe,
   probeMedia,
   runFfmpeg,
   runFfmpegCapture,
@@ -230,6 +235,28 @@ function hasRealVideoStream(stderr: string): boolean {
     .some((line) => line.includes(': Video:') && !line.includes('attached pic'));
 }
 
+const MAX_RENDER_SEGMENTS = 250;
+
+/** Merges the smallest gaps between segments until the count is manageable — very long files
+ *  (or a heavily hand-edited segment list) could otherwise produce an enormous filter graph. */
+function capSegmentCount(segments: Segment[], max = MAX_RENDER_SEGMENTS): Segment[] {
+  const kept = segments.map((s) => ({ ...s }));
+  while (kept.length > max) {
+    let idx = 0;
+    let smallest = Infinity;
+    for (let i = 0; i < kept.length - 1; i += 1) {
+      const gap = kept[i + 1].start - kept[i].end;
+      if (gap < smallest) {
+        smallest = gap;
+        idx = i;
+      }
+    }
+    kept[idx] = { start: kept[idx].start, end: kept[idx + 1].end };
+    kept.splice(idx + 1, 1);
+  }
+  return kept;
+}
+
 /** Complement of the silences over [rangeStart, rangeEnd], with breathing padding. */
 function keptSegments(
   silences: Segment[],
@@ -246,22 +273,7 @@ function keptSegments(
     cursor = Math.max(Math.min(s.end, rangeEnd) - padding, end);
   }
   if (rangeEnd - cursor > 0.05) kept.push({ start: cursor, end: rangeEnd });
-  // Very long files could produce enormous filter graphs — merge the smallest
-  // gaps until the segment count is manageable.
-  while (kept.length > 250) {
-    let idx = 0;
-    let smallest = Infinity;
-    for (let i = 0; i < kept.length - 1; i += 1) {
-      const gap = kept[i + 1].start - kept[i].end;
-      if (gap < smallest) {
-        smallest = gap;
-        idx = i;
-      }
-    }
-    kept[idx] = { start: kept[idx].start, end: kept[idx + 1].end };
-    kept.splice(idx + 1, 1);
-  }
-  return kept;
+  return capSegmentCount(kept);
 }
 
 const CHUNK_SILENCE_DB = -35;
@@ -291,63 +303,225 @@ function speechChunks(silences: Segment[], duration: number): Segment[] {
   return chunks.length <= MAX_TRANSCRIBE_CHUNKS ? chunks : [{ start: 0, end: duration }];
 }
 
+const PEAKS_SOURCE_RATE = 1000;
+const MAX_PEAK_BUCKETS = 20_000;
+const THUMBNAIL_TARGET = 100;
+const THUMBNAIL_MIN_INTERVAL = 0.5;
+const THUMBNAIL_WIDTH = 160;
+const JPEG_SOI = Buffer.from([0xff, 0xd8]);
+const JPEG_EOI = Buffer.from([0xff, 0xd9]);
+
+/** Min/max per bucket from raw f32le PCM, read byte-by-byte to avoid Buffer/Float32Array
+ *  alignment issues. Bucket count is capped regardless of clip length so the JSON response
+ *  stays bounded — resolution degrades gracefully on very long files instead of a hard cutoff. */
+function bucketPeaks(pcm: Buffer, sourceRate: number): WaveformPeaks {
+  const total = Math.floor(pcm.length / 4);
+  if (total === 0) return { values: [], bucketSeconds: 0 };
+  const stride = Math.max(1, Math.ceil(total / MAX_PEAK_BUCKETS));
+  const values: number[] = [];
+  for (let i = 0; i < total; i += stride) {
+    let min = 1;
+    let max = -1;
+    const end = Math.min(total, i + stride);
+    for (let j = i; j < end; j += 1) {
+      const v = pcm.readFloatLE(j * 4);
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    values.push(Number(min.toFixed(3)), Number(max.toFixed(3)));
+  }
+  return { values, bucketSeconds: stride / sourceRate };
+}
+
+/** Splits an MJPEG byte stream (ffmpeg `-f image2pipe -vcodec mjpeg`) on JPEG SOI/EOI markers. */
+function splitMjpegFrames(buf: Buffer): Buffer[] {
+  const frames: Buffer[] = [];
+  let pos = 0;
+  while (pos < buf.length) {
+    const soi = buf.indexOf(JPEG_SOI, pos);
+    if (soi === -1) break;
+    const eoi = buf.indexOf(JPEG_EOI, soi + 2);
+    if (eoi === -1) break;
+    frames.push(buf.subarray(soi, eoi + 2));
+    pos = eoi + 2;
+  }
+  return frames;
+}
+
+function parseVolumeDetect(stderr: string): { mean: number; max: number } | null {
+  const mean = /mean_volume:\s*(-?[\d.]+)\s*dB/.exec(stderr);
+  const max = /max_volume:\s*(-?[\d.]+)\s*dB/.exec(stderr);
+  if (!mean || !max) return null;
+  return { mean: Number(mean[1]), max: Number(max[1]) };
+}
+
+/** Same headroom-above-the-sample heuristic the old client-side calibration used. */
+function thresholdFromVolume(v: { mean: number; max: number }): number {
+  return Math.round(Math.min(-15, Math.max(-70, Math.max(v.max + 4, v.mean + 10))));
+}
+
 /**
- * AutoCut-style silence removal for audio and video: pass 1 maps silences with
- * silencedetect, pass 2 rebuilds the media keeping only the audible segments.
- * An optional range trims to [start, end] first; mode 'off' skips silence
- * cutting entirely (pure trim).
+ * Stage 1 of the timeline tool: probes the file, detects silences at the requested mode/
+ * threshold, and generates a waveform peaks array plus (for video) a thumbnail filmstrip — all
+ * client-editable before anything is actually cut. An optional noise sample runs a quick,
+ * range-scoped `volumedetect` pass to calibrate the threshold instead of decoding the whole file.
  */
-export function silenceCutTask(req: {
+export function analyzeTimelineTask(req: {
   inputPath: string;
   mode: SilenceMode;
-  range?: { start: number; end: number };
-  /** Threshold calibrated from a user-selected noise sample; overrides the mode preset. */
-  noiseDbOverride?: number;
+  range?: TimelineSegment;
+  sample?: TimelineSegment;
   title?: string;
 }): JobTask {
-  const params = req.mode === 'off' ? null : SILENCE_PARAMS[req.mode];
-  const noiseDb = req.noiseDbOverride ?? params?.noiseDb;
   let outputName: string | null = null;
   return {
     title: req.title,
     maxAttempts: 1,
-    start: (tempDir, callbacks) => {
-      let killed = false;
-      let current: { kill(): void } | null = null;
-
-      const done = (async () => {
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
         callbacks.onStage('processing');
 
-        // Pass 1 — detect silences (also tells us duration and stream layout).
-        const detect = runFfmpegCapture([
-          '-i', req.inputPath,
-          ...(params
-            ? ['-af', `silencedetect=noise=${noiseDb}dB:d=${params.minSilence}`]
-            : []),
-          '-f', 'null', '-',
-        ]);
-        current = detect;
-        const stderr = await detect.done;
-        if (killed) throw new Error('canceled');
-
-        const duration = parseDuration(stderr);
-        if (!duration) throw new Error('could not determine duration');
+        // Probe stream layout first — `-af silencedetect` errors out on a file with no audio
+        // stream at all (e.g. a muted screen recording), so whether to even attempt it depends
+        // on this pass, not the other way around.
+        const probeStderr = await track(runFfmpegCapture(['-i', req.inputPath, '-f', 'null', '-'])).done;
+        assertAlive();
+        const duration = parseDuration(probeStderr);
+        if (!duration) throw new Error('EDITOOLS_INVALID_FILE: could not determine duration');
+        const hasVideo = hasRealVideoStream(probeStderr);
+        const hasAudio = probeStderr.includes(': Audio:');
+        const dims = parseProbe(probeStderr);
         const rangeStart = Math.min(Math.max(req.range?.start ?? 0, 0), duration);
         const rangeEnd = Math.min(Math.max(req.range?.end ?? duration, rangeStart), duration);
-        const silences = params
-          ? parseSilences(stderr).filter((s) => s.end > rangeStart && s.start < rangeEnd)
-          : [];
-        const kept = keptSegments(silences, rangeStart, rangeEnd, params?.paddingSeconds ?? 0);
-        const keptTotal = kept.reduce((sum, s) => sum + (s.end - s.start), 0);
-        const removed = Math.max(0, duration - keptTotal);
-        if (params) {
-          callbacks.onMeta?.({
-            silencesCut: silences.length,
-            removedSeconds: Math.round(Math.max(0, rangeEnd - rangeStart - keptTotal)),
-          });
+
+        let noiseDb: number | undefined;
+        if (req.sample && hasAudio) {
+          const dur = Math.max(0.1, req.sample.end - req.sample.start);
+          const sampleStderr = await track(
+            runFfmpegCapture([
+              '-ss', String(req.sample.start), '-i', req.inputPath, '-t', String(dur),
+              '-af', 'volumedetect', '-f', 'null', '-',
+            ]),
+          ).done;
+          assertAlive();
+          const volume = parseVolumeDetect(sampleStderr);
+          if (volume) noiseDb = thresholdFromVolume(volume);
         }
 
-        const video = hasRealVideoStream(stderr);
+        const params = req.mode === 'off' || !hasAudio ? null : SILENCE_PARAMS[req.mode];
+        const effectiveNoiseDb = noiseDb ?? params?.noiseDb;
+
+        let silences: Segment[] = [];
+        if (params) {
+          const detectStderr = await track(
+            runFfmpegCapture([
+              '-i', req.inputPath,
+              '-af', `silencedetect=noise=${effectiveNoiseDb}dB:d=${params.minSilence}`,
+              '-f', 'null', '-',
+            ]),
+          ).done;
+          assertAlive();
+          silences = parseSilences(detectStderr).filter((s) => s.end > rangeStart && s.start < rangeEnd);
+        }
+        const kept = keptSegments(silences, rangeStart, rangeEnd, params?.paddingSeconds ?? 0);
+
+        let peaks: WaveformPeaks | null = null;
+        if (hasAudio) {
+          const pcm = await track(
+            runFfmpegToBuffer([
+              '-i', req.inputPath, '-vn', '-ac', '1', '-ar', String(PEAKS_SOURCE_RATE), '-f', 'f32le', '-',
+            ]),
+          ).done;
+          assertAlive();
+          peaks = bucketPeaks(pcm, PEAKS_SOURCE_RATE);
+        }
+
+        let thumbnails: ThumbnailFrame[] = [];
+        if (hasVideo) {
+          const interval = Math.max(THUMBNAIL_MIN_INTERVAL, duration / THUMBNAIL_TARGET);
+          const strip = await track(
+            runFfmpegToBuffer([
+              '-i', req.inputPath,
+              '-vf', `fps=1/${interval},scale=${THUMBNAIL_WIDTH}:-1`,
+              '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '6', '-',
+            ]),
+          ).done;
+          assertAlive();
+          thumbnails = splitMjpegFrames(strip).map((buf, i) => ({
+            at: Math.min(duration, i * interval),
+            dataUrl: `data:image/jpeg;base64,${buf.toString('base64')}`,
+          }));
+        }
+
+        const analysis: TimelineAnalysis = {
+          duration,
+          hasVideo,
+          hasAudio,
+          width: dims?.width ?? 0,
+          height: dims?.height ?? 0,
+          peaks,
+          thumbnails,
+          silences,
+          kept,
+          noiseDb: effectiveNoiseDb,
+        };
+        outputName = 'analysis.json';
+        await writeFile(path.join(tempDir, outputName), JSON.stringify(analysis), 'utf8');
+      }),
+    resolveOutput: async (tempDir) => {
+      if (!outputName) return undefined;
+      const output = path.join(tempDir, outputName);
+      return existsSync(output) ? output : undefined;
+    },
+  };
+}
+
+/**
+ * Stage 2 of the timeline tool: rebuilds the media keeping only the given segments (trim/atrim +
+ * concat, same filter-graph approach the old one-shot silence cutter used) — the client has
+ * already decided what to keep, via analyzeTimelineTask plus any hand edits, so no silencedetect
+ * runs here at all. Serves both "cut silence" and manual video trims: both are just edits to the
+ * same kept-segment list.
+ */
+export function cutSegmentsTask(req: {
+  inputPath: string;
+  segments: TimelineSegment[];
+  title?: string;
+}): JobTask {
+  let outputName: string | null = null;
+  return {
+    title: req.title,
+    maxAttempts: 1,
+    start: (tempDir, callbacks) =>
+      pipelineTask(async ({ track, assertAlive }) => {
+        callbacks.onStage('processing');
+
+        const detectStderr = await track(runFfmpegCapture(['-i', req.inputPath, '-f', 'null', '-'])).done;
+        assertAlive();
+        const duration = parseDuration(detectStderr);
+        if (!duration) throw new Error('EDITOOLS_INVALID_FILE: could not determine duration');
+        const video = hasRealVideoStream(detectStderr);
+
+        const kept = capSegmentCount(
+          req.segments
+            .map((s) => ({
+              start: Math.max(0, Math.min(s.start, duration)),
+              end: Math.max(0, Math.min(s.end, duration)),
+            }))
+            .filter((s) => s.end - s.start > 0.05)
+            .sort((a, b) => a.start - b.start),
+        );
+        const keptTotal = kept.reduce((sum, s) => sum + (s.end - s.start), 0);
+        const removed = Math.max(0, duration - keptTotal);
+        const gaps =
+          kept.length === 0
+            ? 0
+            : kept.length -
+              1 +
+              (kept[0].start > 0.05 ? 1 : 0) +
+              (duration - kept[kept.length - 1].end > 0.05 ? 1 : 0);
+        callbacks.onMeta?.({ silencesCut: gaps, removedSeconds: Math.round(removed) });
+
         const inputExt = path.extname(req.inputPath).toLowerCase();
         outputName = video ? 'output.mp4' : inputExt === '.mp3' ? 'output.mp3' : 'output.wav';
         const outputPath = path.join(tempDir, outputName);
@@ -359,8 +533,7 @@ export function silenceCutTask(req: {
           return;
         }
 
-        // Pass 2 — rebuild without the silences. The filter graph can exceed
-        // Windows' command-line limit, so it goes through a script file.
+        // The filter graph can exceed Windows' command-line limit, so it goes through a script file.
         const filters: string[] = [];
         const concatInputs: string[] = [];
         kept.forEach((s, i) => {
@@ -386,24 +559,14 @@ export function silenceCutTask(req: {
             ? ['-map', '[a]', '-c:a', 'libmp3lame', '-q:a', '0']
             : ['-map', '[a]', '-c:a', 'pcm_s16le'];
 
-        const render = runFfmpeg(
-          ['-i', req.inputPath, '-filter_complex_script', scriptPath, ...outputArgs, outputPath],
-          keptTotal,
-          callbacks,
-        );
-        current = render;
-        await render.done;
-      })();
-
-      const handle: ProcessHandle = {
-        kill() {
-          killed = true;
-          current?.kill();
-        },
-        done,
-      };
-      return handle;
-    },
+        await track(
+          runFfmpeg(
+            ['-i', req.inputPath, '-filter_complex_script', scriptPath, ...outputArgs, outputPath],
+            keptTotal,
+            callbacks,
+          ),
+        ).done;
+      }),
     resolveOutput: async (tempDir) => {
       if (!outputName) return undefined;
       const output = path.join(tempDir, outputName);
