@@ -2,9 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as R
 import {
   TRACK_ANCHOR_MAX,
   TRACK_ANCHOR_MIN,
-  TRACK_ANCHOR_X_DEFAULT,
-  TRACK_ANCHOR_Y_DEFAULT,
-  TRACK_ZOOM_DEFAULT,
   TRACK_ZOOM_MAX,
   TRACK_ZOOM_MIN,
   type TrackAspect,
@@ -19,7 +16,11 @@ interface Props {
   anchorX: number;
   anchorY: number;
   onAnchorChange: (x: number, y: number) => void;
-  labels: { zoom: string; boxHint: string; face: string; reset: string };
+  /** Where the user put the marker on their subject (fractions of the frame); null = not placed, shown at the centre. */
+  subject: { x: number; y: number } | null;
+  onSubjectChange: (x: number, y: number) => void;
+  onReset: () => void;
+  labels: { zoom: string; boxHint: string; face: string; faceDrag: string; reset: string };
   disabled?: boolean;
 }
 
@@ -38,7 +39,8 @@ function fullCrop(w: number, h: number, targetRatio: number) {
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
 type Drag =
   | { kind: 'move'; startX: number; startY: number; left: number; top: number; boxW: number; boxH: number }
-  | { kind: 'resize'; corner: Corner; anchorX: number; fullW: number };
+  | { kind: 'resize'; corner: Corner; anchorX: number; fullW: number; sx: number }
+  | { kind: 'dot'; startX: number; startY: number; sx: number; sy: number };
 
 const CORNER_STYLE: Record<Corner, string> = {
   nw: '-left-1.5 -top-1.5 cursor-nwse-resize',
@@ -49,10 +51,12 @@ const CORNER_STYLE: Record<Corner, string> = {
 
 /**
  * Video preview with the crop the job will produce, as a box you can handle directly:
- * drag the box to choose where the face sits in the final frame (it moves around the face marker,
- * which stands in for the face at the middle of the shot), drag a corner to zoom, or use the arrow
- * keys / zoom slider. The per-frame crop position still follows the real face at render time; this
- * only edits the framing around it.
+ * - drag the **marker** onto the face you want followed (this also tells the tracker which face to
+ *   start with when there are several); the box travels with it;
+ * - drag the **box** to choose where that face sits in the final frame;
+ * - drag a **corner** (or use the slider) to zoom; arrow keys and + / - work too.
+ * The per-frame crop position still follows the real face at render time; this edits the starting
+ * point and the framing around it.
  *
  * One input path only. An earlier version layered an invisible range input over the frame, whose
  * horizontal mapping fought the vertical one here and made the box jitter while dragging. A drag
@@ -68,34 +72,39 @@ export function ZoomFrame({
   anchorX,
   anchorY,
   onAnchorChange,
+  subject,
+  onSubjectChange,
+  onReset,
   labels,
   disabled,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const stopDrag = useRef<(() => void) | null>(null);
   // The drag's window listeners outlive a render, so they call through this for the latest props.
-  const latest = useRef({ onZoomChange, onAnchorChange });
-  latest.current = { onZoomChange, onAnchorChange };
+  const latest = useRef({ onZoomChange, onAnchorChange, onSubjectChange });
+  latest.current = { onZoomChange, onAnchorChange, onSubjectChange };
   const [frameSize, setFrameSize] = useState({ w: 16, h: 9 });
 
   useEffect(() => () => stopDrag.current?.(), []);
 
   const full = fullCrop(frameSize.w, frameSize.h, TARGET_RATIO[aspect]);
-  // Box size and position as fractions of the frame. The face marker is the frame's centre.
+  // Box size and position as fractions of the frame, positioned around the face marker (sx, sy).
+  const sx = subject?.x ?? 0.5;
+  const sy = subject?.y ?? 0.5;
   const boxW = full.w / zoom / frameSize.w;
   const boxH = full.h / zoom / frameSize.h;
-  const left = clamp(0.5 - anchorX * boxW, 0, 1 - boxW);
-  const top = clamp(0.5 - anchorY * boxH, 0, 1 - boxH);
+  const left = clamp(sx - anchorX * boxW, 0, 1 - boxW);
+  const top = clamp(sy - anchorY * boxH, 0, 1 - boxH);
   // What the box really shows once clamped to the frame (so the first drag never jumps).
-  const effX = clamp((0.5 - left) / boxW, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX);
-  const effY = clamp((0.5 - top) / boxH, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX);
+  const effX = clamp((sx - left) / boxW, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX);
+  const effY = clamp((sy - top) / boxH, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX);
 
   const setBox = (nextLeft: number, nextTop: number, size = { w: boxW, h: boxH }) => {
     const l = clamp(nextLeft, 0, 1 - size.w);
     const t = clamp(nextTop, 0, 1 - size.h);
     latest.current.onAnchorChange(
-      clamp((0.5 - l) / size.w, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX),
-      clamp((0.5 - t) / size.h, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX),
+      clamp((sx - l) / size.w, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX),
+      clamp((sy - t) / size.h, TRACK_ANCHOR_MIN, TRACK_ANCHOR_MAX),
     );
   };
 
@@ -110,11 +119,18 @@ export function ZoomFrame({
       );
       return;
     }
+    if (d.kind === 'dot') {
+      latest.current.onSubjectChange(
+        clamp(d.sx + (clientX - d.startX) / rect.width, 0, 1),
+        clamp(d.sy + (clientY - d.startY) / rect.height, 0, 1),
+      );
+      return;
+    }
     // Resize around the face marker: the corner's distance from it, over the share of the box on that side.
     const px = (clientX - rect.left) / rect.width;
     const rightSide = d.corner === 'ne' || d.corner === 'se';
     const sideShare = rightSide ? 1 - d.anchorX : d.anchorX;
-    const nextW = Math.max(Math.abs(px - 0.5) / sideShare, 0.001);
+    const nextW = Math.max(Math.abs(px - d.sx) / sideShare, 0.001);
     latest.current.onZoomChange(clamp(d.fullW / nextW, TRACK_ZOOM_MIN, TRACK_ZOOM_MAX));
   };
 
@@ -146,7 +162,30 @@ export function ZoomFrame({
     if (disabled || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    beginDrag({ kind: 'resize', corner, anchorX: effX, fullW: full.w / frameSize.w });
+    beginDrag({ kind: 'resize', corner, anchorX: effX, fullW: full.w / frameSize.w, sx });
+  };
+
+  const onDotDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (disabled || e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.focus();
+    beginDrag({ kind: 'dot', startX: e.clientX, startY: e.clientY, sx, sy });
+  };
+
+  const onDotKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    const step = 0.01;
+    const delta: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const d = delta[e.key];
+    if (!d) return;
+    e.preventDefault();
+    latest.current.onAnchorChange(effX, effY);
+    latest.current.onSubjectChange(clamp(sx + d[0], 0, 1), clamp(sy + d[1], 0, 1));
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -199,13 +238,6 @@ export function ZoomFrame({
             if (v.videoWidth && v.videoHeight) setFrameSize({ w: v.videoWidth, h: v.videoHeight });
           }}
         />
-        {/* The shot's centre: where the tracked face is assumed to be for this preview. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent shadow-[0_0_0_3px_rgba(0,0,0,0.5)]"
-          style={{ left: '50%', top: '50%' }}
-          title={labels.face}
-        />
         <div
           role="group"
           tabIndex={disabled ? -1 : 0}
@@ -225,6 +257,24 @@ export function ZoomFrame({
                 className={`absolute z-20 h-3.5 w-3.5 touch-none rounded-sm border-2 border-accent bg-zinc-950 ${CORNER_STYLE[corner]}`}
               />
             ))}
+        </div>
+        {/* The face marker: drag it onto the face to follow. A larger invisible hit area surrounds the visible dot. */}
+        <div
+          role="group"
+          tabIndex={disabled ? -1 : 0}
+          aria-label={labels.faceDrag}
+          title={subject ? labels.face : labels.faceDrag}
+          onPointerDown={onDotDown}
+          onKeyDown={onDotKeyDown}
+          className={`absolute z-30 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-text ${
+            disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
+          }`}
+          style={{ left: pct(sx), top: pct(sy) }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none h-3.5 w-3.5 rounded-full border-2 border-white bg-accent shadow-[0_0_0_3px_rgba(0,0,0,0.55),0_0_14px_rgba(145,70,255,0.9)]"
+          />
         </div>
       </div>
 
@@ -247,10 +297,7 @@ export function ZoomFrame({
         <button
           type="button"
           disabled={disabled}
-          onClick={() => {
-            onZoomChange(TRACK_ZOOM_DEFAULT);
-            onAnchorChange(TRACK_ANCHOR_X_DEFAULT, TRACK_ANCHOR_Y_DEFAULT);
-          }}
+          onClick={onReset}
           className="shrink-0 cursor-pointer text-xs text-zinc-400 transition hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {labels.reset}

@@ -10,7 +10,7 @@
     "16:9": "Horizontal"
   },
   "zoomTitle": "Zoom",
-  "zoomHint": "Drag the box to choose where the face sits in the final frame, and a corner (or the slider) to zoom. Zoom crops in and scales back up, so a little softness is normal.",
+  "zoomHint": "Drag the dot onto the face you want followed (handy when there are several people). Drag the box to choose where that face sits in the final frame, and a corner or the slider to zoom. Zoom crops in and scales back up, so a little softness is normal.",
   "smoothingTitle": "Camera smoothness",
   "smoothing": {
     "low": "Tight",
@@ -23,6 +23,7 @@
   "coverageWarning": "A face was visible in only {{percent}}% of the video — the camera holds or glides through the rest.",
   "hint": "Runs on your computer. One face is followed: the largest one, staying with it when others appear.",
   "boxHint": "Crop box: drag to move it, drag a corner to resize, or use the arrow keys and + / -",
-  "faceMarker": "Where the face is in this preview",
-  "resetFraming": "Reset"
+  "faceMarker": "The face being followed — drag to move it",
+  "resetFraming": "Reset",
+  "faceDrag": "Drag onto the face you want to follow"
 }

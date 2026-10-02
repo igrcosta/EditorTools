@@ -102,12 +102,20 @@ const captionsRenderSchema = z.object({
   scale: z.coerce.number().min(CAPTION_SCALE_MIN).max(CAPTION_SCALE_MAX).default(CAPTION_SCALE_DEFAULT),
 });
 
+const optionalFraction = z.preprocess(
+  (v) => (v === undefined || v === '' ? undefined : v),
+  z.coerce.number().min(0).max(1).optional(),
+);
+
 const faceTrackSchema = z.object({
   aspect: z.enum(TRACK_ASPECTS).default('9:16'),
   zoom: z.coerce.number().min(TRACK_ZOOM_MIN).max(TRACK_ZOOM_MAX).default(TRACK_ZOOM_DEFAULT),
   smoothing: z.enum(TRACK_SMOOTHING).default('medium'),
   anchorX: z.coerce.number().min(TRACK_ANCHOR_MIN).max(TRACK_ANCHOR_MAX).default(TRACK_ANCHOR_X_DEFAULT),
   anchorY: z.coerce.number().min(TRACK_ANCHOR_MIN).max(TRACK_ANCHOR_MAX).default(TRACK_ANCHOR_Y_DEFAULT),
+  // Optional: only sent when the user placed the marker on a face.
+  subjectX: optionalFraction,
+  subjectY: optionalFraction,
 });
 
 export function registerVideoRoutes(app: FastifyInstance): void {
@@ -124,7 +132,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
-      const { aspect, zoom, smoothing, anchorX, anchorY } = parsed.data;
+      const { aspect, zoom, smoothing, anchorX, anchorY, subjectX, subjectY } = parsed.data;
       const job = await createJob(
         faceTrackTask({
           inputPath: upload.inputPath,
@@ -133,6 +141,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
           smoothing,
           anchorX,
           anchorY,
+          subject: subjectX !== undefined && subjectY !== undefined ? { x: subjectX, y: subjectY } : undefined,
           title: `${titleFrom(upload.originalName)} (face tracked)`,
         }),
         tempDir,

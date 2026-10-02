@@ -104,10 +104,44 @@ export interface TrackPoint {
 
 const SMOOTHING_SIGMA_S: Record<TrackSmoothing, number> = { low: 0.25, medium: 0.5, high: 0.9 };
 
-/** Picks the face to follow: the largest one, preferring continuity with the previous pick. */
-export function pickPrimary(faces: FaceBox[], previous: FaceBox | null): FaceBox | null {
+/** How far from the user's marker (in analysis-frame pixels) a face may be and still count as the one they meant. */
+const HINT_MAX_DISTANCE = YUNET_SIZE * 0.3;
+
+/**
+ * Picks the face to follow: the largest one, preferring continuity with the previous pick.
+ * With a `hint` (the point the user placed on their subject), the first pick is the face under it
+ * — or the nearest one within reach — instead of simply the largest, which is how a second,
+ * bigger face in the background stops stealing the track. Once a face is picked, continuity
+ * takes over, so the hint only decides who to start with.
+ *
+ * `locked` (set when the user marked a face) makes that continuity strict: the default rule
+ * ("switch to a face that is clearly bigger") would drop the marked face the moment a larger one
+ * is in frame, which is exactly the case the marker exists for. A locked track follows the face
+ * nearest to the previous one and returns null — a gap the track interpolates over — when none is
+ * within reach, rather than jumping to someone else.
+ */
+export function pickPrimary(
+  faces: FaceBox[],
+  previous: FaceBox | null,
+  hint: { cx: number; cy: number } | null = null,
+  locked = false,
+): FaceBox | null {
   if (faces.length === 0) return null;
+  if (locked && previous) {
+    const nearest = faces.reduce((a, b) =>
+      Math.hypot(b.cx - previous.cx, b.cy - previous.cy) < Math.hypot(a.cx - previous.cx, a.cy - previous.cy) ? b : a,
+    );
+    return Math.hypot(nearest.cx - previous.cx, nearest.cy - previous.cy) <= HINT_MAX_DISTANCE ? nearest : null;
+  }
   const largest = faces.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+  if (!previous && hint) {
+    const dist = (f: FaceBox) => Math.hypot(f.cx - hint.cx, f.cy - hint.cy);
+    const under = faces.filter((f) => Math.abs(f.cx - hint.cx) <= f.w / 2 && Math.abs(f.cy - hint.cy) <= f.h / 2);
+    const nearest = faces.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+    if (under.length > 0) return under.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+    if (dist(nearest) <= HINT_MAX_DISTANCE) return nearest;
+    return largest;
+  }
   if (!previous) return largest;
   // Stick with the face nearest to the last one unless another is clearly bigger.
   const nearest = faces.reduce((a, b) =>

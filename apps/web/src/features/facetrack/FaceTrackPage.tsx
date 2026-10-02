@@ -35,6 +35,8 @@ export function FaceTrackPage() {
   const [aspect, setAspect] = useState<TrackAspect>('9:16');
   const [zoom, setZoom] = useState(TRACK_ZOOM_DEFAULT);
   const [anchor, setAnchor] = useState({ x: TRACK_ANCHOR_X_DEFAULT, y: TRACK_ANCHOR_Y_DEFAULT });
+  // Set once the user places the marker on a face; until then the tracker simply follows the largest one.
+  const [subject, setSubject] = useState<{ x: number; y: number } | null>(null);
   const [smoothing, setSmoothing] = useState<TrackSmoothing>('medium');
   const localUrl = useObjectUrl(file);
 
@@ -44,6 +46,7 @@ export function FaceTrackPage() {
 
   const onFile = (f: File) => {
     setFile(f);
+    setSubject(null);
     runner.reset();
   };
 
@@ -54,6 +57,10 @@ export function FaceTrackPage() {
     form.append('zoom', String(zoom));
     form.append('anchorX', String(anchor.x));
     form.append('anchorY', String(anchor.y));
+    if (subject) {
+      form.append('subjectX', String(subject.x));
+      form.append('subjectY', String(subject.y));
+    }
     form.append('smoothing', smoothing);
     form.append('file', file);
     void runner.start('/api/video/face-track', form);
@@ -138,10 +145,18 @@ export function FaceTrackPage() {
                     anchorX={anchor.x}
                     anchorY={anchor.y}
                     onAnchorChange={(x, y) => setAnchor({ x, y })}
+                    subject={subject}
+                    onSubjectChange={(x, y) => setSubject({ x, y })}
+                    onReset={() => {
+                      setZoom(TRACK_ZOOM_DEFAULT);
+                      setAnchor({ x: TRACK_ANCHOR_X_DEFAULT, y: TRACK_ANCHOR_Y_DEFAULT });
+                      setSubject(null);
+                    }}
                     labels={{
                       zoom: t('zoomTitle'),
                       boxHint: t('boxHint'),
                       face: t('faceMarker'),
+                      faceDrag: t('faceDrag'),
                       reset: t('resetFraming'),
                     }}
                     disabled={busy}
