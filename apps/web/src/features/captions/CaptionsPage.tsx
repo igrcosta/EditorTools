@@ -24,6 +24,7 @@ import { useObjectUrl } from '../../lib/useObjectUrl';
 import { useVideoPlayback } from '../../lib/useVideoPlayback';
 import { CaptionFrame } from './CaptionFrame';
 import { CustomTemplateEditor } from './CustomTemplateEditor';
+import { LanguagePicker, useCaptionLanguage } from './LanguagePicker';
 import { deleteCustomTemplate, loadCustomTemplates, saveCustomTemplate, type CustomTemplate } from './customTemplates';
 import { resolvePreviewStyle } from './previewStyles';
 import { TemplateGallery } from './TemplateGallery';
@@ -41,7 +42,7 @@ const DEFAULT_FPS = 30;
 const NEW_WORD_DURATION = 0.4;
 
 export function CaptionsPage() {
-  const { t } = useTranslation('captions');
+  const { t, i18n } = useTranslation('captions');
   const features = useFeatures();
   const transcribeRunner = useJobRunner({ autoSave: false });
   const renderRunner = useJobRunner({ autoSave: false });
@@ -57,6 +58,7 @@ export function CaptionsPage() {
   const [scale, setScale] = useState(CAPTION_SCALE_DEFAULT);
   const [selectedWord, setSelectedWord] = useState<number | null>(null);
   const [videoFps, setVideoFps] = useState<number | null>(null);
+  const [spokenLanguage, setSpokenLanguage] = useCaptionLanguage();
   const localUrl = useObjectUrl(file);
   const { videoRef, videoEl, currentTime, duration, playing } = useVideoPlayback();
 
@@ -66,6 +68,7 @@ export function CaptionsPage() {
 
   const wordCount = transcribeRunner.job?.meta?.captionWordCount;
   const language = transcribeRunner.job?.meta?.captionLanguage;
+  const timing = transcribeRunner.job?.meta?.captionTiming;
   const renderBusy = renderRunner.starting || renderRunner.jobActive;
   const renderDone = renderRunner.job?.status === 'done';
 
@@ -124,6 +127,7 @@ export function CaptionsPage() {
     if (!file) return;
     setWords(null);
     const form = new FormData();
+    form.append('language', spokenLanguage);
     form.append('file', file);
     void transcribeRunner.start('/api/video/captions/transcribe', form);
   };
@@ -247,9 +251,16 @@ export function CaptionsPage() {
                     </ErrorMessage>
                   )}
                   {!transcribeRunner.starting && !transcribeRunner.jobActive && !parsing && (
-                    <Button className="w-full" onClick={onTranscribe}>
-                      {t('transcribe')}
-                    </Button>
+                    <>
+                      <LanguagePicker
+                        value={spokenLanguage}
+                        onChange={setSpokenLanguage}
+                        preciseLanguages={features?.captionAlignLanguages ?? []}
+                      />
+                      <Button className="w-full" onClick={onTranscribe}>
+                        {t('transcribe')}
+                      </Button>
+                    </>
                   )}
                   {(transcribeRunner.starting || parsing) && (
                     <div className="flex items-center gap-2 text-sm text-zinc-400">
@@ -312,7 +323,8 @@ export function CaptionsPage() {
                         <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{t('editTitle')}</p>
                         <p className="text-xs text-zinc-500">
                           {t('wordsFound', { count: wordCount ?? words.length })}
-                          {language && ` · ${t('languageDetected', { language })}`}
+                          {language && ` · ${t('languageUsed', { language: new Intl.DisplayNames([i18n.language || 'en'], { type: 'language' }).of(language) ?? language })}`}
+                          {timing === 'estimated' && ` · ${t('timingEstimated')}`}
                         </p>
                       </div>
                       <p className="text-xs text-zinc-500">{t('editHint')}</p>

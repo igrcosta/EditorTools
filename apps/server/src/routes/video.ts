@@ -6,10 +6,15 @@ import {
   CAPTION_FONTS,
   CAPTION_POSITION_DEFAULT,
   CAPTION_POSITION_Y_DEFAULT,
+  CAPTION_LANGUAGES,
   CAPTION_PRESETS,
   CAPTION_SCALE_DEFAULT,
   CAPTION_SCALE_MAX,
   CAPTION_SCALE_MIN,
+  TRACK_ANCHOR_MAX,
+  TRACK_ANCHOR_MIN,
+  TRACK_ANCHOR_X_DEFAULT,
+  TRACK_ANCHOR_Y_DEFAULT,
   TRACK_ASPECTS,
   TRACK_SMOOTHING,
   TRACK_ZOOM_DEFAULT,
@@ -84,6 +89,10 @@ const customStyleField = z
     return result.data;
   });
 
+const captionsTranscribeSchema = z.object({
+  language: z.enum(CAPTION_LANGUAGES).default('auto'),
+});
+
 const captionsRenderSchema = z.object({
   words: captionWordsField,
   preset: z.enum(CAPTION_PRESETS).default('karaoke'),
@@ -97,6 +106,8 @@ const faceTrackSchema = z.object({
   aspect: z.enum(TRACK_ASPECTS).default('9:16'),
   zoom: z.coerce.number().min(TRACK_ZOOM_MIN).max(TRACK_ZOOM_MAX).default(TRACK_ZOOM_DEFAULT),
   smoothing: z.enum(TRACK_SMOOTHING).default('medium'),
+  anchorX: z.coerce.number().min(TRACK_ANCHOR_MIN).max(TRACK_ANCHOR_MAX).default(TRACK_ANCHOR_X_DEFAULT),
+  anchorY: z.coerce.number().min(TRACK_ANCHOR_MIN).max(TRACK_ANCHOR_MAX).default(TRACK_ANCHOR_Y_DEFAULT),
 });
 
 export function registerVideoRoutes(app: FastifyInstance): void {
@@ -113,13 +124,15 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
-      const { aspect, zoom, smoothing } = parsed.data;
+      const { aspect, zoom, smoothing, anchorX, anchorY } = parsed.data;
       const job = await createJob(
         faceTrackTask({
           inputPath: upload.inputPath,
           aspect,
           zoom,
           smoothing,
+          anchorX,
+          anchorY,
           title: `${titleFrom(upload.originalName)} (face tracked)`,
         }),
         tempDir,
@@ -144,13 +157,18 @@ export function registerVideoRoutes(app: FastifyInstance): void {
     const tempDir = await createTempDir();
     try {
       const upload = await receiveUpload(request, tempDir);
-      if (!upload) {
+      const parsed = upload ? captionsTranscribeSchema.safeParse(upload.fields) : null;
+      if (!upload || !parsed?.success) {
         await rm(tempDir, { recursive: true, force: true });
         return reply.code(400).send(apiError('invalid_file'));
       }
 
       const job = await createJob(
-        transcribeCaptionsTask({ inputPath: upload.inputPath, title: titleFrom(upload.originalName) }),
+        transcribeCaptionsTask({
+          inputPath: upload.inputPath,
+          title: titleFrom(upload.originalName),
+          language: parsed.data.language,
+        }),
         tempDir,
       );
       if (job === 'busy') {

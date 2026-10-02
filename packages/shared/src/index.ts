@@ -147,6 +147,16 @@ export const TRACK_ZOOM_MIN = 1;
 export const TRACK_ZOOM_MAX = 2.5;
 export const TRACK_ZOOM_DEFAULT = 1.3;
 
+/**
+ * Where the tracked face sits inside the output frame, as a fraction of the crop's width/height
+ * (0 = left/top edge, 1 = right/bottom edge). The defaults are the classic talking-head framing:
+ * centred sideways, a little above middle. The web preview's draggable box edits exactly this.
+ */
+export const TRACK_ANCHOR_X_DEFAULT = 0.5;
+export const TRACK_ANCHOR_Y_DEFAULT = 0.4;
+export const TRACK_ANCHOR_MIN = 0.1;
+export const TRACK_ANCHOR_MAX = 0.9;
+
 export const TRACK_SMOOTHING = ['low', 'medium', 'high'] as const;
 export type TrackSmoothing = (typeof TRACK_SMOOTHING)[number];
 
@@ -205,6 +215,17 @@ export interface CustomCaptionStyle {
   backgroundOpacity: number;
   animation: CaptionAnimation;
 }
+
+/**
+ * Languages offered for automatic captions (ISO 639-1, all supported by whisper). Picking the
+ * language up front avoids whisper's auto-detection, which misfires on short or noisy clips and
+ * is the main cause of garbled transcripts. 'auto' stays available as an explicit choice.
+ */
+export const CAPTION_LANGUAGES = [
+  'auto', 'en', 'pt', 'es', 'fr', 'de', 'it', 'nl', 'pl', 'ru', 'uk', 'tr', 'ar', 'he', 'hi',
+  'ja', 'ko', 'zh', 'id', 'vi', 'th', 'sv', 'da', 'no', 'fi', 'cs', 'el', 'ro', 'hu',
+] as const;
+export type CaptionLanguage = (typeof CAPTION_LANGUAGES)[number];
 
 /** One transcribed (or user-edited) word with its own timing, in seconds. */
 export interface CaptionWord {
@@ -272,8 +293,10 @@ export interface JobMeta {
   faceCoverage?: number;
   /** Captions: number of words transcribed (lets the UI flag a suspiciously short result). */
   captionWordCount?: number;
-  /** Captions: whisper's own language guess (e.g. "pt"), shown as a confirmation. */
+  /** Captions: the language the transcript was made in (the user's pick, or whisper's guess for "auto"). */
   captionLanguage?: string;
+  /** Captions: 'aligned' = word times measured by a forced-alignment model; 'estimated' = whisper's own. */
+  captionTiming?: 'aligned' | 'estimated';
 }
 
 /** Which optional tools this server instance can run (desktop ships the models; the web deploy does not). */
@@ -282,6 +305,8 @@ export interface FeaturesResponse {
   upscale: boolean;
   faceTracking: boolean;
   captions: boolean;
+  /** Caption languages that get precise (forced-alignment) word timing on this install. */
+  captionAlignLanguages: string[];
 }
 
 export const ERROR_CODES = [

@@ -7,8 +7,37 @@ import { killProcess, type ProcessHandle } from './ffmpeg';
 
 export type TranscriptWord = CaptionWord;
 
+export interface TranscribeOptions {
+  /** ISO 639-1 code the user picked, or 'auto' to let whisper guess (it guesses wrong on short or noisy clips). */
+  language?: string;
+  /**
+   * Ask whisper for DTW token timestamps (cross-attention alignment) instead of the decoder's raw
+   * ones. Slower (no flash attention), so only used for languages without a forced-alignment model.
+   */
+  dtw?: boolean;
+}
+
+/** whisper.cpp's alignment-head preset; must match the model in features.ts (ggml-small, multilingual). */
+const DTW_PRESET = 'small';
+
+/**
+ * DTW's per-token time is where the attention peaks, i.e. inside the word, not at its onset.
+ * Measured on ground-truth speech (Windows SAPI word-boundary events, English and Portuguese): the
+ * first token's DTW time is 200–300 ms after the true word start, never early. 250 ms centres it.
+ */
+const DTW_ONSET_OFFSET_SECONDS = 0.25;
+const DTW_END_TAIL_SECONDS = 0.1;
+
+/** A run of consecutive words whisper decoded together: `words.slice(from, to)`. */
+export interface TranscriptSegment {
+  from: number;
+  to: number;
+}
+
 export interface TranscriptResult {
   words: TranscriptWord[];
+  /** How whisper grouped `words` into segments — the windows the forced aligner works on. */
+  segments: TranscriptSegment[];
   /** whisper's own language guess (e.g. "pt"), when it reported one. */
   language?: string;
 }
@@ -27,10 +56,12 @@ export interface TranscriptResult {
  * (`-oj -ojf`, no `-ml`) and reconstructs words itself in parseWhisperOutput — same underlying
  * per-token timestamps whisper.cpp already computes, just without the stretch-to-next-word step.
  *
- * `vadModelPath`, when given, turns on whisper.cpp's built-in Voice Activity Detection: it
- * pre-filters actual speech before transcription, which stops whisper from hallucinating text
- * over silence/music and gives segments cleaner start/end boundaries than the decoder's own
- * timestamps. Optional — plain transcription without it works the same as before.
+ * No `--vad`: whisper.cpp's built-in VAD returns token times on a timeline with the silences cut
+ * out, while segment times are mapped back to real time, so adding the two double-counts every
+ * removed pause — each segment after the first came back later and later (measured: 5–16 s late
+ * on a 22 s clip, the "word shows up long after it was spoken" bug). tasks.ts already splits the
+ * audio on real pauses before calling this, so every chunk here is continuous speech and all
+ * token times are plain absolute offsets.
  *
  * `outputBaseName` (default "transcript") names the JSON file inside `tempDir` — callers
  * transcribing several chunks of the same job (see tasks.ts's transcribeCaptionsTask) give each
@@ -40,15 +71,17 @@ export function transcribe(
   wavPath: string,
   modelPath: string,
   tempDir: string,
-  vadModelPath?: string | null,
   outputBaseName = 'transcript',
+  options: TranscribeOptions = {},
 ): ProcessHandle {
   if (!config.whisperPath) {
     return { kill() {}, done: Promise.reject(new Error('EDITOOLS_ASR_MODEL_MISSING: whisper binary not configured')) };
   }
   const outBase = path.join(tempDir, outputBaseName);
-  const args = ['-m', modelPath, '-f', wavPath, '-l', 'auto', '-oj', '-ojf', '-of', outBase, '-np'];
-  if (vadModelPath) args.push('--vad', '--vad-model', vadModelPath);
+  const args = ['-m', modelPath, '-f', wavPath, '-l', options.language ?? 'auto', '-oj', '-ojf', '-of', outBase, '-np'];
+  // whisper.cpp silently disables --dtw while flash attention is on (its default), which is why
+  // `t_dtw` used to come back as -1 for every token. Both must change together.
+  if (options.dtw) args.push('-nfa', '--dtw', DTW_PRESET);
   const proc = spawn(config.whisperPath, args, { windowsHide: true });
 
   let stderr = '';
@@ -70,9 +103,13 @@ export function transcribe(
 }
 
 /** Reads back the JSON file `transcribe()` wrote into `tempDir`. */
-export async function readTranscript(tempDir: string, outputBaseName = 'transcript'): Promise<TranscriptResult> {
+export async function readTranscript(
+  tempDir: string,
+  outputBaseName = 'transcript',
+  options: { dtw?: boolean } = {},
+): Promise<TranscriptResult> {
   const raw = await readFile(path.join(tempDir, `${outputBaseName}.json`), 'utf8');
-  return parseWhisperOutput(JSON.parse(raw));
+  return parseWhisperOutput(JSON.parse(raw), options);
 }
 
 /**
@@ -105,48 +142,65 @@ function padWordEnds(words: TranscriptWord[]): TranscriptWord[] {
  * word-splitting did (see transcribe()) — then padWordEnds nudges it back out to compensate for
  * that same End being conservative. Offsets are milliseconds.
  */
-export function parseWhisperOutput(json: unknown): TranscriptResult {
+export function parseWhisperOutput(json: unknown, options: { dtw?: boolean } = {}): TranscriptResult {
   const root = json as {
     transcription?: Array<{
       offsets?: { from?: number };
-      tokens?: Array<{ text?: string; offsets?: { from?: number; to?: number } }>;
+      tokens?: Array<{ text?: string; offsets?: { from?: number; to?: number }; t_dtw?: number }>;
     }>;
     result?: { language?: string };
   };
   const segments = Array.isArray(root.transcription) ? root.transcription : [];
 
   const words: TranscriptWord[] = [];
+  // DTW time (seconds) of each word's first and last token, parallel to `words`; null when whisper had none.
+  const dtwSpans: Array<{ first: number; last: number } | null> = [];
+  const wordSegments: TranscriptSegment[] = [];
   for (const segment of segments) {
+    const firstWordOfSegment = words.length;
     const tokens = segment.tokens ?? [];
-    const segmentStart = segment.offsets?.from ?? 0;
-    // With --vad, whisper.cpp decodes each detected speech span as its own cropped buffer, so
-    // that segment's own token offsets restart from 0 — even though the *segment's* offsets are
-    // correctly mapped back to the real timeline (empirically confirmed: a segment reported
-    // starting at 3170ms had its first token at offset 40ms, not ~3170ms). Detected per segment
-    // by comparing its first real token's offset against the segment's own start — plain
-    // (non-VAD) segments' tokens are already absolute and never trip this.
-    const firstReal = tokens.find((t) => {
-      const text = (t.text ?? '').trim();
-      return text && !/^\[.*\]$/.test(text);
-    });
-    const base = firstReal && (firstReal.offsets?.from ?? 0) < segmentStart ? segmentStart : 0;
-
     for (const token of tokens) {
       const raw = token.text ?? '';
       const text = raw.trim();
       // Whisper's control/special tokens ("[_BEG_]", "[_TT_283]", ...) aren't real words.
       if (!text || /^\[.*\]$/.test(text)) continue;
 
-      const from = base + (token.offsets?.from ?? 0);
-      const to = Math.max(base + (token.offsets?.to ?? token.offsets?.from ?? 0), from + 1);
+      const from = token.offsets?.from ?? 0;
+      const to = Math.max(token.offsets?.to ?? token.offsets?.from ?? 0, from + 1);
+      const dtw = options.dtw && typeof token.t_dtw === 'number' && token.t_dtw >= 0 ? token.t_dtw / 100 : null;
       if (/^\s/.test(raw) || words.length === 0) {
         words.push({ text, start: from / 1000, end: to / 1000 });
+        dtwSpans.push(dtw === null ? null : { first: dtw, last: dtw });
       } else {
         const current = words[words.length - 1];
         current.text += text;
         current.end = to / 1000;
+        const span = dtwSpans[dtwSpans.length - 1];
+        if (span && dtw !== null) span.last = dtw;
+        else if (dtw === null) dtwSpans[dtwSpans.length - 1] = null;
       }
     }
+    if (words.length > firstWordOfSegment) wordSegments.push({ from: firstWordOfSegment, to: words.length });
   }
-  return { words: padWordEnds(words), language: root.result?.language };
+  if (options.dtw && dtwSpans.length > 0 && dtwSpans.every((span) => span !== null)) {
+    return { words: wordsFromDtw(words, dtwSpans as Array<{ first: number; last: number }>), segments: wordSegments, language: root.result?.language };
+  }
+  return { words: padWordEnds(words), segments: wordSegments, language: root.result?.language };
+}
+
+/** Re-times words from their DTW token times; see DTW_ONSET_OFFSET_SECONDS. Keeps order and no overlap. */
+function wordsFromDtw(words: TranscriptWord[], spans: Array<{ first: number; last: number }>): TranscriptWord[] {
+  const out = words.map((word, i) => ({
+    text: word.text,
+    start: Math.max(0, spans[i].first - DTW_ONSET_OFFSET_SECONDS),
+    end: spans[i].last + DTW_END_TAIL_SECONDS,
+  }));
+  for (let i = 0; i < out.length; i += 1) {
+    const prev = out[i - 1];
+    if (prev && out[i].start < prev.start) out[i].start = prev.start;
+    const next = out[i + 1];
+    if (next && out[i].end > next.start) out[i].end = Math.max(out[i].start + 0.03, next.start);
+    if (out[i].end <= out[i].start) out[i].end = out[i].start + 0.03;
+  }
+  return out;
 }

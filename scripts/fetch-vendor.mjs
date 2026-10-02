@@ -39,13 +39,32 @@ const MODELS = [
     sha256: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
     dest: 'models/ggml-small.bin',
   },
+  // Forced-alignment models for caption word timing (see apps/server/src/media/aligner.ts and its
+  // ALIGNER_MODELS table, which must list the same files). wav2vec2 CTC acoustic models, ONNX
+  // conversions by onnx-community, both Apache-2.0. Quantised variants chosen by benchmark against
+  // ground-truth speech: same timing accuracy as fp32, a fraction of the size. One model per
+  // language; languages without one keep whisper's own (less precise) word timing.
   {
-    // Silero VAD (MIT), GGML-converted by the whisper.cpp project itself — pre-filters real
-    // speech before transcription (see whisper.ts's transcribe()): fixes whisper hallucinating
-    // text over silence/music, and gives cleaner segment boundaries than whisper's own decoder.
-    url: 'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin',
-    sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987',
-    dest: 'models/ggml-silero-v6.2.0.bin',
+    // English: facebook/wav2vec2-base-960h, 4-bit weights + fp16 (66 MB).
+    url: 'https://huggingface.co/onnx-community/wav2vec2-base-960h-ONNX/resolve/main/onnx/model_q4f16.onnx',
+    sha256: '2f460f72fe492b40abfb779f7e3522ff80d5271397a75cfb0545dc1fab95f844',
+    dest: 'models/aligner-en.onnx',
+  },
+  {
+    url: 'https://huggingface.co/onnx-community/wav2vec2-base-960h-ONNX/resolve/main/vocab.json',
+    sha256: '4178db26b3c7570f6a47f14ac6a1c7b32950b8c2800fb097287e53776934f1c5',
+    dest: 'models/aligner-en.vocab.json',
+  },
+  {
+    // Portuguese: jonatasgrosman/wav2vec2-large-xlsr-53-portuguese, bnb4 (241 MB).
+    url: 'https://huggingface.co/onnx-community/wav2vec2-large-xlsr-53-portuguese-ONNX/resolve/main/onnx/model_bnb4.onnx',
+    sha256: 'deb83887f3ef7af9b9a103ae243fcca3cff6704f10738258128a4db62e780704',
+    dest: 'models/aligner-pt.onnx',
+  },
+  {
+    url: 'https://huggingface.co/onnx-community/wav2vec2-large-xlsr-53-portuguese-ONNX/resolve/main/vocab.json',
+    sha256: 'c556e19617e216947d0a0a6f5b029ba4bf2cc54c005854e0960a1bf64bf0320b',
+    dest: 'models/aligner-pt.vocab.json',
   },
   // Custom caption template fonts (see apps/server/src/media/captions.ts's CAPTION_FONT_FILES).
   // All OFL (SIL Open Font License) via the google/fonts repo — the only fonts a custom caption

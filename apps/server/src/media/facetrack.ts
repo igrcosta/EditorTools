@@ -152,13 +152,15 @@ export function even(n: number): number {
 /**
  * Turns sparse detections into a per-output-frame crop position: gaps are
  * interpolated (edges held), the path is Gaussian-smoothed in time, the face
- * sits at 40% from the top of the crop, and the crop is clamped to the frame.
+ * sits at `anchor` inside the crop (default: centred, 40% from the top), and the crop is
+ * clamped to the frame.
  */
 export function buildTrack(
   samples: Sample[],
   frame: { width: number; height: number; fps: number; duration: number },
   crop: CropWindow,
   smoothing: TrackSmoothing,
+  anchor: { x: number; y: number } = { x: 0.5, y: 0.4 },
 ): TrackPoint[] {
   const filled = fillGaps(samples);
   const sigma = SMOOTHING_SIGMA_S[smoothing];
@@ -173,8 +175,8 @@ export function buildTrack(
     const t = n / frame.fps;
     const cx = interpolate(filled, xs, t);
     const cy = interpolate(filled, ys, t);
-    const x = even(Math.round(Math.min(maxX, Math.max(0, cx - crop.w / 2))));
-    const y = even(Math.round(Math.min(maxY, Math.max(0, cy - crop.h * 0.4))));
+    const x = even(Math.round(Math.min(maxX, Math.max(0, cx - crop.w * anchor.x))));
+    const y = even(Math.round(Math.min(maxY, Math.max(0, cy - crop.h * anchor.y))));
     track.push({ t, x, y });
   }
   return track;

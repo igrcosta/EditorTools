@@ -37,7 +37,7 @@ import {
   type FaceBox,
   type Sample,
 } from './facetrack';
-import { modelPath } from './features';
+import { alignerFiles, modelPath } from './features';
 import {
   parseProbe,
   probeMedia,
@@ -50,6 +50,7 @@ import {
 import type { JobCallbacks, JobTask } from './jobs';
 import { getSession } from './onnx';
 import { realesrganModelsDir, runRealesrgan } from './realesrgan';
+import { loadAligner, readWav16kMono, type Aligner } from './aligner';
 import { readTranscript, transcribe } from './whisper';
 import { runDownload } from './ytdlp';
 
@@ -779,6 +780,8 @@ export function faceTrackTask(req: {
   aspect: TrackAspect;
   zoom: number;
   smoothing: TrackSmoothing;
+  anchorX: number;
+  anchorY: number;
   title?: string;
 }): JobTask {
   const outputName = 'output.mp4';
@@ -865,7 +868,10 @@ export function faceTrackTask(req: {
         });
 
         // Smooth path → per-frame crop offsets for sendcmd.
-        const points = buildTrack(samples, { width, height, fps, duration }, crop, req.smoothing);
+        const points = buildTrack(samples, { width, height, fps, duration }, crop, req.smoothing, {
+          x: req.anchorX,
+          y: req.anchorY,
+        });
         await writeFile(path.join(tempDir, 'track.cmd'), sendcmdScript(points), 'utf8');
         const filter =
           `[0:v]sendcmd=f=track.cmd,crop@c=${crop.w}:${crop.h}:${points[0].x}:${points[0].y},` +
@@ -910,7 +916,7 @@ export function faceTrackTask(req: {
  * lets the user edit the text/timing of each word before stage 2 renders it,
  * so this task's "output" is data, not a video — same JobTask shape either way.
  */
-export function transcribeCaptionsTask(req: { inputPath: string; title?: string }): JobTask {
+export function transcribeCaptionsTask(req: { inputPath: string; title?: string; language: string }): JobTask {
   const outputName = 'words.json';
   return {
     title: req.title,
@@ -926,7 +932,6 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
 
         const model = modelPath('whisperModel');
         if (!model) throw new Error('EDITOOLS_ASR_MODEL_MISSING: whisper model file is missing');
-        const vadModel = modelPath('vad');
 
         // Extract a 16kHz mono WAV (whisper.cpp's expected input format).
         const wavPath = path.join(tempDir, 'audio.wav');
@@ -939,13 +944,9 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
         ).done;
         assertAlive();
 
-        // Split on real pauses before transcribing. whisper.cpp's own --vad merges every speech
-        // span it finds into one continuous decode buffer, discarding how long each gap actually
-        // was — token timestamps after the first real pause come back compressed to whatever
-        // padding is left, not the true pause length (confirmed empirically: a 2-second pause
-        // collapsed to ~400ms, throwing off every word after it). Chunking ourselves first, each
-        // chunk transcribed on its own knowing its own true start offset, sidesteps that; --vad
-        // still runs *within* each chunk since a single continuous speech run isn't affected.
+        // Split on real pauses before transcribing, each chunk transcribed on its own knowing its
+        // own true start offset. (whisper.cpp's --vad would do the splitting itself, but it hands
+        // back token times on a timeline with the pauses removed — see transcribe() in whisper.ts.)
         const detectStderr = await track(
           runFfmpegCapture([
             '-i', wavPath,
@@ -959,8 +960,26 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
 
         // whisper.cpp's own progress reporting is unreliable, so this step stays indeterminate
         // (matches how the other pipelines treat helper passes).
+        //
+        // Timing: whisper decides *what* was said; for languages with a forced-alignment model
+        // (aligner.ts) *when* each word was said is then measured by that model instead, which is
+        // an order of magnitude tighter than whisper's own token times. Other languages fall back
+        // to whisper's DTW timestamps (slower, still much better than the raw decoder ones).
         const words: CaptionWord[] = [];
-        let language: string | undefined;
+        let language = req.language;
+        let aligner: Aligner | null = null;
+        let aligned = false;
+        const useAlignerFor = async (lang: string): Promise<Aligner | null> => {
+          const files = alignerFiles(lang);
+          if (!files) return null;
+          try {
+            return await loadAligner(files.model, files.vocab, lang);
+          } catch {
+            return null; // model unreadable or runtime missing: fall back to whisper's timing
+          }
+        };
+        if (language !== 'auto') aligner = await useAlignerFor(language);
+
         for (const [i, chunk] of chunks.entries()) {
           assertAlive();
           const chunkWav = path.join(tempDir, `chunk-${i}.wav`);
@@ -972,14 +991,45 @@ export function transcribeCaptionsTask(req: { inputPath: string; title?: string 
             ),
           ).done;
           assertAlive();
-          await track(transcribe(chunkWav, model, tempDir, vadModel, `chunk-${i}`)).done;
+
+          // DTW only when the language is known to have no aligner (it costs speed).
+          let dtw = language !== 'auto' && aligner === null;
+          await track(transcribe(chunkWav, model, tempDir, `chunk-${i}`, { language, dtw })).done;
           assertAlive();
-          const result = await readTranscript(tempDir, `chunk-${i}`);
-          language ??= result.language;
-          for (const w of result.words) words.push({ text: w.text, start: w.start + chunk.start, end: w.end + chunk.start });
+          let result = await readTranscript(tempDir, `chunk-${i}`, { dtw });
+
+          // "Auto": the first chunk's guess becomes the language for the rest, so one clip never
+          // flips between languages mid-way, and it picks the aligner.
+          if (language === 'auto' && result.language) {
+            language = result.language;
+            aligner = await useAlignerFor(language);
+            if (aligner === null) {
+              dtw = true;
+              await track(transcribe(chunkWav, model, tempDir, `chunk-${i}`, { language, dtw })).done;
+              assertAlive();
+              result = await readTranscript(tempDir, `chunk-${i}`, { dtw });
+            }
+          }
+
+          let chunkWords = result.words;
+          if (aligner && result.words.length > 0) {
+            try {
+              const samples = await readWav16kMono(chunkWav);
+              chunkWords = await aligner.align(samples, result.words, result.segments, assertAlive);
+              aligned = true;
+            } catch {
+              assertAlive(); // a cancel must stay a cancel; anything else keeps whisper's own timing
+              chunkWords = result.words;
+            }
+          }
+          for (const w of chunkWords) words.push({ text: w.text, start: w.start + chunk.start, end: w.end + chunk.start });
         }
         if (words.length === 0) throw new Error('EDITOOLS_NO_SPEECH_DETECTED');
-        callbacks.onMeta?.({ captionWordCount: words.length, captionLanguage: language });
+        callbacks.onMeta?.({
+          captionWordCount: words.length,
+          captionLanguage: language === 'auto' ? undefined : language,
+          captionTiming: aligned ? 'aligned' : 'estimated',
+        });
 
         await writeFile(
           path.join(tempDir, outputName),

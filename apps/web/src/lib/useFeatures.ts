@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import type { FeaturesResponse } from '@editools/shared';
 import { api } from './api';
 
-const NONE: FeaturesResponse = { removeBackground: false, upscale: false, faceTracking: false, captions: false };
+const NONE: FeaturesResponse = {
+  removeBackground: false,
+  upscale: false,
+  faceTracking: false,
+  captions: false,
+  captionAlignLanguages: [],
+};
 
 let cached: FeaturesResponse | null = null;
 let inflight: Promise<FeaturesResponse> | null = null;

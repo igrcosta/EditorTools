@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { FastifyBaseLogger } from 'fastify';
 import type { FeaturesResponse } from '@editools/shared';
 import { config } from '../config';
+import { ALIGNER_MODELS } from './aligner';
 import { canLoadOnnxRuntime, onnxLoadError } from './onnx';
 
 export const MODEL_FILES = {
@@ -11,15 +12,21 @@ export const MODEL_FILES = {
   // "small" (not "base"): meaningfully tighter word-level timestamps for karaoke captions —
   // base's -ml 1 -sow word splitting drifts noticeably, small's is visibly closer.
   whisperModel: 'ggml-small.bin',
-  // Optional: pre-filters real speech before transcription (see whisper.ts). Captions still
-  // work without it — transcribe() just skips the --vad flags when it's missing.
-  vad: 'ggml-silero-v6.2.0.bin',
 } as const;
 
 export function modelPath(name: keyof typeof MODEL_FILES): string | null {
   if (!config.modelsDir) return null;
   const file = path.join(config.modelsDir, MODEL_FILES[name]);
   return existsSync(file) ? file : null;
+}
+
+/** Forced-alignment model + vocab for a language, or null when that language has none installed. */
+export function alignerFiles(language: string): { model: string; vocab: string } | null {
+  const spec = ALIGNER_MODELS.find((m) => m.language === language);
+  if (!spec || !config.modelsDir) return null;
+  const model = path.join(config.modelsDir, spec.model);
+  const vocab = path.join(config.modelsDir, spec.vocab);
+  return existsSync(model) && existsSync(vocab) ? { model, vocab } : null;
 }
 
 /** Runtime availability: master switch(es) + files on disk + (for onnx tools) a loadable runtime. */
@@ -38,7 +45,7 @@ export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResp
     modelPath('whisperModel') !== null;
 
   if (!config.imageToolsEnabled) {
-    return { removeBackground: false, upscale: false, faceTracking: false, captions };
+    return { removeBackground: false, upscale: false, faceTracking: false, captions, captionAlignLanguages: [] };
   }
   const ort = await canLoadOnnxRuntime();
   if (!ort) {
@@ -52,6 +59,7 @@ export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResp
     log?.warn({ realesrganPath: config.realesrganPath }, 'upscale unavailable: realesrgan binary not found on disk');
   }
   return {
+    captionAlignLanguages: ort ? ALIGNER_MODELS.filter((m) => alignerFiles(m.language)).map((m) => m.language) : [],
     removeBackground: ort && modelPath('isnet') !== null,
     faceTracking: ort && modelPath('yunet') !== null,
     upscale: upscaleAvailable,

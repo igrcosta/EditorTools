@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  TRACK_ANCHOR_X_DEFAULT,
+  TRACK_ANCHOR_Y_DEFAULT,
   TRACK_ASPECTS,
   TRACK_SMOOTHING,
   TRACK_ZOOM_DEFAULT,
@@ -32,6 +34,7 @@ export function FaceTrackPage() {
   const [file, setFile] = useState<File | null>(null);
   const [aspect, setAspect] = useState<TrackAspect>('9:16');
   const [zoom, setZoom] = useState(TRACK_ZOOM_DEFAULT);
+  const [anchor, setAnchor] = useState({ x: TRACK_ANCHOR_X_DEFAULT, y: TRACK_ANCHOR_Y_DEFAULT });
   const [smoothing, setSmoothing] = useState<TrackSmoothing>('medium');
   const localUrl = useObjectUrl(file);
 
@@ -49,6 +52,8 @@ export function FaceTrackPage() {
     const form = new FormData();
     form.append('aspect', aspect);
     form.append('zoom', String(zoom));
+    form.append('anchorX', String(anchor.x));
+    form.append('anchorY', String(anchor.y));
     form.append('smoothing', smoothing);
     form.append('file', file);
     void runner.start('/api/video/face-track', form);
@@ -130,7 +135,15 @@ export function FaceTrackPage() {
                     aspect={aspect}
                     zoom={zoom}
                     onZoomChange={setZoom}
-                    label={t('zoomLabel')}
+                    anchorX={anchor.x}
+                    anchorY={anchor.y}
+                    onAnchorChange={(x, y) => setAnchor({ x, y })}
+                    labels={{
+                      zoom: t('zoomTitle'),
+                      boxHint: t('boxHint'),
+                      face: t('faceMarker'),
+                      reset: t('resetFraming'),
+                    }}
                     disabled={busy}
                   />
                 )}

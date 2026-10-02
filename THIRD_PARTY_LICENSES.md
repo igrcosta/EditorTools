@@ -13,7 +13,8 @@ Binaries and models fetched into `vendor/` by `scripts/fetch-vendor.mjs` and shi
 | Real-ESRGAN models (`realesrgan-x4plus`, `realesrgan-x4plus-anime`, `realesr-animevideov3`) | Image upscaling weights | BSD-3-Clause | https://github.com/xinntao/Real-ESRGAN |
 | whisper.cpp (`whisper-cli`) | Speech-to-text engine for Automatic Captions | MIT | https://github.com/ggml-org/whisper.cpp |
 | Whisper "small" weights (`ggml-small.bin`, GGML conversion of OpenAI's Whisper) | Automatic Captions transcription | MIT | https://huggingface.co/ggerganov/whisper.cpp |
-| Silero VAD (`ggml-silero-v6.2.0.bin`, GGML conversion by the whisper.cpp project) | Voice activity detection ahead of Automatic Captions transcription | MIT | https://github.com/snakers4/silero-vad (hosted by https://huggingface.co/ggml-org/whisper-vad) |
+| wav2vec2-base-960h (`aligner-en.onnx`, ONNX conversion by onnx-community of Facebook AI's model) | Forced alignment of English caption word timing | Apache-2.0 | https://huggingface.co/facebook/wav2vec2-base-960h |
+| wav2vec2-large-xlsr-53-portuguese (`aligner-pt.onnx`, ONNX conversion by onnx-community of Jonatas Grosman's fine-tune of Facebook AI's XLSR-53) | Forced alignment of Portuguese caption word timing | Apache-2.0 | https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-portuguese |
 | Anton | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/anton |
 | Bebas Neue | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/bebasneue |
 | Poppins | Custom caption template font | OFL-1.1 | https://github.com/google/fonts/tree/main/ofl/poppins |

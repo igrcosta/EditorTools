@@ -8,7 +8,6 @@
   "transcribe": "Transcribe",
   "transcribing": "Transcribing…",
   "wordsFound": "{{count}} words transcribed",
-  "languageDetected": "detected: {{language}}",
   "editTitle": "Edit the transcript",
   "editHint": "Fix any words the transcription got wrong, add a missed word or remove one, then drag it into place on the timeline below.",
   "deleteWord": "Remove word",
@@ -32,5 +31,14 @@
   "generate": "Generate captions",
   "generateAgain": "Generate again",
   "uploading": "Reading video…",
-  "fewWordsWarning": "Very little speech was found — check the video has clear audio."
+  "fewWordsWarning": "Very little speech was found — check the video has clear audio.",
+  "languageUsed": "language: {{language}}",
+  "timingEstimated": "approximate word timing",
+  "language": {
+    "label": "Language spoken in the video",
+    "auto": "Auto-detect",
+    "hintPrecise": "Frame-accurate word timing for this language.",
+    "hintApprox": "Word timing is approximate for this language — check it on the timeline.",
+    "hintAuto": "Choosing the language yourself is more reliable than auto-detect."
+  }
 }
