@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { CaptionWord } from '@editools/shared';
-import { getSession, loadOrt } from './onnx';
+import { getEmissionClient } from './emission';
 import type { TranscriptSegment } from './whisper';
 
 /**
@@ -168,15 +168,14 @@ export interface Aligner {
     segments: TranscriptSegment[],
     /** Called before each window; throws when the job was cancelled (an in-process pass has no child to kill). */
     assertAlive?: () => void,
+    /** Called after each window finishes, with how many are done of how many in total. */
+    onWindow?: (done: number, total: number) => void,
   ): Promise<CaptionWord[]>;
 }
 
 export async function loadAligner(modelFile: string, vocabFile: string, language: string): Promise<Aligner> {
   const vocab = await loadVocab(vocabFile);
-  const session = await getSession(modelFile);
-  const ort = await loadOrt();
-  if (!ort) throw new Error('onnxruntime-node is not available');
-  const { Tensor } = ort;
+  const client = await getEmissionClient(modelFile);
 
   async function emissionFor(samples: Float32Array, from: number, to: number) {
     const slice = samples.subarray(from, to);
@@ -190,10 +189,8 @@ export async function loadAligner(modelFile: string, vocabFile: string, language
     const input = new Float32Array(slice.length);
     for (let i = 0; i < slice.length; i += 1) input[i] = (slice[i] - mean) / std;
 
-    const out = await session.run({ [session.inputNames[0]]: new Tensor('float32', input, [1, input.length]) });
-    const logits = out[session.outputNames[0]];
-    const [, frames, vocabSize] = logits.dims as number[];
-    const data = Float32Array.from(logits.data as Float32Array);
+    // Inference runs on a worker thread (emission.ts) so the server stays responsive meanwhile.
+    const { data, frames, vocabSize } = await client.run(input);
     logSoftmaxInPlace(data, frames, vocabSize);
     return { data, frames, vocabSize };
   }
@@ -250,7 +247,7 @@ export async function loadAligner(modelFile: string, vocabFile: string, language
 
   return {
     language,
-    async align(samples, words, segments, assertAlive) {
+    async align(samples, words, segments, assertAlive, onWindow) {
       const duration = samples.length / SAMPLE_RATE;
       const timings: Array<{ start: number; end: number } | null> = words.map(() => null);
 
@@ -263,7 +260,7 @@ export async function loadAligner(modelFile: string, vocabFile: string, language
         else windows.push({ from: seg.from, to: seg.to });
       }
 
-      for (const w of windows) {
+      for (const [index, w] of windows.entries()) {
         assertAlive?.();
         const first = words[w.from];
         const lastWord = words[w.to - 1];
@@ -277,6 +274,7 @@ export async function loadAligner(modelFile: string, vocabFile: string, language
         } catch {
           // This window keeps whisper's own timing; one bad window never fails the whole job.
         }
+        onWindow?.(index + 1, windows.length);
       }
 
       return refine(words, timings);

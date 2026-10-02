@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import os from 'node:os';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { CaptionWord } from '@editools/shared';
@@ -15,7 +16,18 @@ export interface TranscribeOptions {
    * ones. Slower (no flash attention), so only used for languages without a forced-alignment model.
    */
   dtw?: boolean;
+  /**
+   * Fraction (0–1) of this audio whisper has decoded, as it reports it. whisper.cpp only reports
+   * once per 30 s window of audio, so this is coarse (a short clip may report once, at the end).
+   */
+  onProgress?: (fraction: number) => void;
 }
+
+/**
+ * whisper.cpp defaults to 4 threads however many cores there are. Measured on an 8-core machine,
+ * 8 threads cut a 30 s clip from 37.7 s to 26.6 s with byte-identical text; past ~8 the gain flattens.
+ */
+const WHISPER_THREADS = Math.max(2, Math.min(8, os.availableParallelism()));
 
 /** whisper.cpp's alignment-head preset; must match the model in features.ts (ggml-small, multilingual). */
 const DTW_PRESET = 'small';
@@ -78,7 +90,7 @@ export function transcribe(
     return { kill() {}, done: Promise.reject(new Error('EDITOOLS_ASR_MODEL_MISSING: whisper binary not configured')) };
   }
   const outBase = path.join(tempDir, outputBaseName);
-  const args = ['-m', modelPath, '-f', wavPath, '-l', options.language ?? 'auto', '-oj', '-ojf', '-of', outBase, '-np'];
+  const args = ['-m', modelPath, '-f', wavPath, '-l', options.language ?? 'auto', '-oj', '-ojf', '-of', outBase, '-np', '-pp', '-t', String(WHISPER_THREADS)];
   // whisper.cpp silently disables --dtw while flash attention is on (its default), which is why
   // `t_dtw` used to come back as -1 for every token. Both must change together.
   if (options.dtw) args.push('-nfa', '--dtw', DTW_PRESET);
@@ -86,7 +98,14 @@ export function transcribe(
 
   let stderr = '';
   proc.stderr?.on('data', (chunk: Buffer) => {
-    stderr = (stderr + chunk.toString()).slice(-4000);
+    const text = chunk.toString();
+    stderr = (stderr + text).slice(-4000);
+    if (options.onProgress) {
+      // "whisper_print_progress_callback: progress =  82%" — keep the last one in this chunk.
+      const matches = [...text.matchAll(/progress\s*=\s*(\d+)%/g)];
+      const last = matches[matches.length - 1];
+      if (last) options.onProgress(Math.min(1, Number(last[1]) / 100));
+    }
   });
   // Transcript text also prints to stdout; discarded (the JSON file is the source of truth) but drained to avoid backpressure.
   proc.stdout?.on('data', () => undefined);
