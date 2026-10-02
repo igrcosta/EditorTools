@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInView } from '../../lib/useInView';
-import { ToolDemo, type DemoKey } from './demos';
+import { IMAGE_DEMO_ASSETS, ToolDemo, type DemoKey } from './demos';
 
 const TOOLS: ReadonlyArray<{ key: DemoKey; to: string; icon: string; title: string }> = [
   { key: 'files', to: '/files', icon: 'fi-rr-folder-download', title: 'home.files.title' },
@@ -26,6 +26,11 @@ export function Showcase() {
   const [active, setActive] = useState(0);
   const [hovering, setHovering] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Warm the cache for the Image tab's photo, so it doesn't pop in when the tab comes up.
+  useEffect(() => {
+    for (const src of IMAGE_DEMO_ASSETS) new Image().src = src;
+  }, []);
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');

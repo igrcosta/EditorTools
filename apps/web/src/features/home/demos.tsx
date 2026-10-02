@@ -1,9 +1,12 @@
-import type { ComponentType, CSSProperties } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useInView } from '../../lib/useInView';
 
 /**
- * Looping, CSS-only illustrations of what each tool does, for the landing page.
- * They are decorative (aria-hidden) and never show numbers or progress: nothing here
- * pretends to be a real job. Each one fills its (relatively positioned) container.
+ * Looping illustrations of what each tool does, for the landing page. They are decorative
+ * (aria-hidden) and never show numbers or progress: nothing here pretends to be a real job. The
+ * image and face-tracking ones use real media, each the output of one real run of that tool; the
+ * rest are CSS-only. Each one fills its (relatively positioned) container.
  * Pausing off-screen is handled by the `.demo-paused` class on an ancestor.
  */
 
@@ -80,56 +83,204 @@ function CaptionsDemo() {
   );
 }
 
-/* ───────── Face Tracking: a 9:16 crop follows the face across a 16:9 shot ───────── */
+/* ───────── Face Tracking: a real clip, the app's own 9:16 result, and the crop that made it ───────── */
+
+/**
+ * The clip, the vertical video Face Tracking made from it, and that run's per-frame crop position
+ * (sampled to 10 per second). All three come from one real run of the app (see public/demo).
+ */
+const TRACK_DEMO_VIDEOS = ['/demo/vlog-original.mp4', '/demo/vlog-tracked.mp4'] as const;
+const TRACK_DEMO_JSON = '/demo/vlog-track.json';
+
+interface CropTrack {
+  source: { width: number; height: number };
+  crop: { width: number; height: number };
+  fps: number;
+  x: number[];
+  y: number[];
+}
+
+/** Crop position (source pixels) at time `t`, interpolated between the stored samples. */
+function cropAt(track: CropTrack, t: number): { x: number; y: number } {
+  const last = track.x.length - 1;
+  const f = Math.min(last, Math.max(0, t * track.fps));
+  const i = Math.floor(f);
+  const j = Math.min(last, i + 1);
+  const k = f - i;
+  return { x: track.x[i] + (track.x[j] - track.x[i]) * k, y: track.y[i] + (track.y[j] - track.y[i]) * k };
+}
+
+/** Only drifts this far (seconds) before the result video is pulled back into step with the original. */
+const MAX_DRIFT_SECONDS = 0.25;
 
 function VideoDemo() {
-  const follow = { animation: 'demo-reframe 7s ease-in-out infinite' } as CSSProperties;
+  const { t } = useTranslation();
+  const [stageRef, onScreen] = useInView<HTMLDivElement>();
+  const originalRef = useRef<HTMLVideoElement>(null);
+  const resultRef = useRef<HTMLVideoElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [track, setTrack] = useState<CropTrack | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(TRACK_DEMO_JSON)
+      .then((res) => (res.ok ? (res.json() as Promise<CropTrack>) : null))
+      .then((data) => {
+        if (alive && data) setTrack(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Plays while on screen (and the window is visible); the box is driven by the real crop track,
+  // read against the original's own clock, so it can never disagree with the video beside it.
+  useEffect(() => {
+    const original = originalRef.current;
+    const result = resultRef.current;
+    const box = boxRef.current;
+    if (!original || !result || !box || !track) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const place = () => {
+      const { x, y } = cropAt(track, original.currentTime);
+      box.style.left = `${(x / track.source.width) * 100}%`;
+      box.style.top = `${(y / track.source.height) * 100}%`;
+    };
+    place();
+    if (reduced || !onScreen) {
+      original.pause();
+      result.pause();
+      return;
+    }
+
+    let frame = 0;
+    const tick = () => {
+      place();
+      if (Math.abs(result.currentTime - original.currentTime) > MAX_DRIFT_SECONDS) {
+        result.currentTime = original.currentTime;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    void original.play().catch(() => undefined);
+    void result.play().catch(() => undefined);
+    frame = requestAnimationFrame(tick);
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        original.pause();
+        result.pause();
+      } else {
+        void original.play().catch(() => undefined);
+        void result.play().catch(() => undefined);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [track, onScreen]);
+
+  const crop = track ? { w: track.crop.width / track.source.width, h: track.crop.height / track.source.height } : null;
+
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(135deg,#17151f,#0b0b10)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_90%,rgba(145,70,255,0.18),transparent_55%)]" />
-      {/* the face */}
-      <div className="absolute top-[24%] h-[56%] w-[11%] -translate-x-1/2" style={follow}>
-        <span className="absolute top-0 left-1/2 aspect-square w-[78%] -translate-x-1/2 rounded-full bg-zinc-300/90" />
-        <span className="absolute bottom-0 left-1/2 h-[42%] w-full -translate-x-1/2 rounded-t-full bg-zinc-500/80" />
-      </div>
-      {/* the crop that follows it */}
+    // Size container: both videos share one height, chosen so that the 16:9 original and the 9:16
+    // result sit side by side inside whatever stage this is given.
+    <div
+      ref={stageRef}
+      className="absolute inset-0 grid place-items-center overflow-hidden"
+      style={{ containerType: 'size' }}
+    >
       <div
-        className="absolute top-[6%] h-[88%] aspect-[9/16] -translate-x-1/2 rounded-md border-2 border-accent-text shadow-[0_0_0_999px_rgba(0,0,0,0.58)]"
-        style={follow}
+        className="flex items-center gap-3"
+        style={{ height: 'min(calc(100cqh - 24px), calc((100cqw - 36px) / 2.34))' }}
       >
-        <span className="absolute -top-px left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-white">
-          9:16
-        </span>
+        <div className="relative h-full overflow-hidden rounded-lg bg-black" style={{ aspectRatio: '16 / 9' }}>
+          <video
+            ref={originalRef}
+            src={`${TRACK_DEMO_VIDEOS[0]}#t=0.1`}
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="absolute inset-0 size-full object-cover"
+          />
+          {crop && (
+            <div
+              ref={boxRef}
+              className="absolute rounded-sm border-2 border-accent-text shadow-[0_0_0_999px_rgba(0,0,0,0.5)]"
+              style={{ width: `${crop.w * 100}%`, height: `${crop.h * 100}%` }}
+            />
+          )}
+          <span className="absolute top-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-zinc-100 backdrop-blur">
+            {t('home.showcase.track.before')}
+          </span>
+        </div>
+        <div className="relative h-full overflow-hidden rounded-lg bg-black" style={{ aspectRatio: '9 / 16' }}>
+          <video
+            ref={resultRef}
+            src={`${TRACK_DEMO_VIDEOS[1]}#t=0.1`}
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="absolute inset-0 size-full object-cover"
+          />
+          <span className="absolute top-2 left-2 rounded-full bg-accent/90 px-2.5 py-1 text-[11px] font-semibold text-white">
+            {t('home.showcase.track.after')}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ───────── Image: before/after divider sweeping across a cut-out ───────── */
+/* ───────── Image: a real photo, and the app's own cut-out of it, swept by a divider ───────── */
 
-function Subject() {
-  return (
-    <div className="absolute bottom-0 left-1/2 h-[78%] w-[34%] -translate-x-1/2">
-      <span className="absolute top-0 left-1/2 aspect-square w-[46%] -translate-x-1/2 rounded-full bg-zinc-300" />
-      <span className="absolute bottom-0 left-1/2 h-[52%] w-full -translate-x-1/2 rounded-t-[999px] bg-accent/80" />
-    </div>
-  );
-}
+/** The photo and the transparent PNG that Remove Background produced for it (see public/demo). */
+export const IMAGE_DEMO_ASSETS = ['/demo/car-original.jpg', '/demo/car-cutout.webp'] as const;
+const IMAGE_DEMO_RATIO = '3 / 2';
 
 function ImageDemo() {
+  const { t } = useTranslation();
   return (
-    <div className="absolute inset-0 overflow-hidden">
-      {/* before: busy background */}
-      <div className="absolute inset-0 bg-[repeating-linear-gradient(115deg,#1d1b27_0_14px,#2a2540_14px_28px)]" />
-      <Subject />
-      {/* after: same subject, background removed → checkerboard */}
-      <div className="checkerboard absolute inset-0" style={{ animation: 'demo-compare 6s ease-in-out infinite' }}>
-        <Subject />
+    // A size container, so the photo can be sized as "the largest 3:2 box that fits" in plain CSS
+    // (cqw/cqh) and the divider and checkerboard then span the photo itself, not letterbox bands.
+    <div className="absolute inset-0 grid place-items-center overflow-hidden" style={{ containerType: 'size' }}>
+      <div
+        className="relative overflow-hidden rounded-lg shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)]"
+        style={{ width: 'min(100cqw, 150cqh)', aspectRatio: IMAGE_DEMO_RATIO }}
+      >
+        <img
+          src={IMAGE_DEMO_ASSETS[0]}
+          alt=""
+          draggable={false}
+          decoding="async"
+          className="absolute inset-0 size-full object-cover"
+        />
+        {/* The cut-out, over a checkerboard so the removed background reads as transparent. */}
+        <div className="checkerboard absolute inset-0" style={{ animation: 'demo-compare 6s ease-in-out infinite' }}>
+          <img
+            src={IMAGE_DEMO_ASSETS[1]}
+            alt=""
+            draggable={false}
+            decoding="async"
+            className="absolute inset-0 size-full object-cover"
+          />
+        </div>
+        <span
+          className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_16px_rgba(255,255,255,0.7)]"
+          style={{ animation: 'demo-compare-bar 6s ease-in-out infinite' }}
+        />
+        <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-zinc-100 backdrop-blur">
+          {t('home.showcase.compare.before')}
+        </span>
+        <span className="absolute top-2.5 right-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-zinc-100 backdrop-blur">
+          {t('home.showcase.compare.after')}
+        </span>
       </div>
-      <span
-        className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_16px_rgba(255,255,255,0.7)]"
-        style={{ animation: 'demo-compare-bar 6s ease-in-out infinite' }}
-      />
     </div>
   );
 }

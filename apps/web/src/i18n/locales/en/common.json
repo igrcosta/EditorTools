@@ -87,6 +87,14 @@
           "headline": "Captions that people actually read.",
           "body": "Transcribe locally, fix any word, pick a style and burn the captions into the video."
         }
+      },
+      "compare": {
+        "before": "Original",
+        "after": "Background removed"
+      },
+      "track": {
+        "before": "Original",
+        "after": "Face tracked · 9:16"
       }
     },
     "formats": {

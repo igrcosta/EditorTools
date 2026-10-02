@@ -415,22 +415,6 @@ html {
   }
 }
 
-@keyframes demo-reframe {
-  0%,
-  100% {
-    left: 22%;
-  }
-  30% {
-    left: 58%;
-  }
-  60% {
-    left: 40%;
-  }
-  80% {
-    left: 70%;
-  }
-}
-
 @keyframes demo-compare {
   0%,
   100% {
