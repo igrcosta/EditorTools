@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../components/PageHeader';
+import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { ConvertPage } from '../converter/ConvertPage';
 import { DownloadPage } from '../downloader/DownloadPage';
 
@@ -15,20 +16,12 @@ export function FilesPage() {
     <div className="mx-auto max-w-xl space-y-5">
       <PageHeader title={t('filesHub.title')} description={t('filesHub.description')} />
 
-      <div className="flex gap-1 rounded-full border border-white/10 bg-surface p-1">
-        {(['download', 'convert'] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`flex-1 cursor-pointer rounded-full px-3 py-2 text-sm transition-colors ${
-              tab === key ? 'bg-accent/15 font-medium text-accent-text' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            {t(`filesHub.tabs.${key}`)}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        options={['download', 'convert'] as const}
+        value={tab}
+        onChange={setTab}
+        label={(key) => t(`filesHub.tabs.${key}`)}
+      />
 
       {tab === 'download' ? <DownloadPage embedded /> : <ConvertPage embedded />}
     </div>

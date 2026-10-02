@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../components/PageHeader';
+import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { AudioFixPage } from '../audiofix/AudioFixPage';
 import { SilenceCutPage } from '../silencecut/SilenceCutPage';
 
@@ -15,22 +16,12 @@ export function AudioPage() {
     <div className="mx-auto max-w-xl space-y-5">
       <PageHeader title={t('audioHub.title')} description={t('audioHub.description')} />
 
-      <div className="flex gap-1 rounded-full border border-white/10 bg-surface p-1">
-        {(['silence', 'fix'] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`flex-1 cursor-pointer rounded-full px-3 py-2 text-sm transition-colors ${
-              tab === key
-                ? 'bg-accent/15 font-medium text-accent-text'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            {t(`audioHub.tabs.${key}`)}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        options={['silence', 'fix'] as const}
+        value={tab}
+        onChange={setTab}
+        label={(key) => t(`audioHub.tabs.${key}`)}
+      />
 
       {tab === 'silence' ? <SilenceCutPage embedded /> : <AudioFixPage embedded />}
     </div>

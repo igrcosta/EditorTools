@@ -63,10 +63,20 @@ export function Dropzone({ accept, disabled, label, hint, pasteHint, onFile }: P
       }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
-      className={`w-full cursor-pointer rounded-lg border-2 border-dashed p-10 text-center transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        dragOver ? 'border-accent bg-accent/5' : 'border-white/15 hover:border-white/30'
+      className={`group w-full cursor-pointer rounded-xl border border-dashed p-10 text-center transition duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+        dragOver
+          ? 'scale-[1.01] border-accent bg-accent/10 shadow-[0_0_40px_-12px_rgba(145,70,255,0.8)]'
+          : 'border-white/15 bg-white/[0.02] hover:border-accent/50 hover:bg-accent/[0.04]'
       }`}
     >
+      <span
+        className={`mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-lg transition duration-300 group-hover:-translate-y-0.5 group-hover:border-accent/40 group-hover:text-accent-text ${
+          dragOver ? 'border-accent/60 text-accent-text' : 'text-zinc-400'
+        }`}
+        aria-hidden="true"
+      >
+        <i className="fi-rr-upload" />
+      </span>
       <p className="font-medium text-zinc-200">{label}</p>
       {hint && <p className="mt-1 text-sm text-zinc-500">{hint}</p>}
       {pasteHint && <p className="mt-1 text-sm text-zinc-500">{pasteHint}</p>}

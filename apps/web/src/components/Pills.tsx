@@ -22,8 +22,8 @@ export function Pills<T extends string | number>({ options, value, onChange, lab
             disabled={off}
             className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
               value === opt
-                ? 'border-accent text-accent-text'
-                : 'border-white/10 text-zinc-400 hover:border-white/25'
+                ? 'border-accent/70 bg-accent/10 text-accent-text shadow-[0_0_20px_-8px_rgba(145,70,255,0.9)]'
+                : 'border-white/10 text-zinc-400 hover:border-white/25 hover:text-zinc-200'
             }`}
           >
             {label(opt)}

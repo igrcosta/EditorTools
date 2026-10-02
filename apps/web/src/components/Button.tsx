@@ -3,10 +3,10 @@ import type { ButtonHTMLAttributes } from 'react';
 type Variant = 'primary' | 'secondary' | 'ghost';
 
 const styles: Record<Variant, string> = {
-  primary: 'bg-accent text-zinc-950 font-semibold hover:bg-accent-strong disabled:opacity-50 disabled:hover:bg-accent',
+  primary: 'btn-primary font-semibold text-white disabled:opacity-50',
   secondary:
-    'border border-white/10 text-zinc-200 hover:border-accent/40 disabled:opacity-50 disabled:hover:border-white/10',
-  ghost: 'text-zinc-400 hover:text-zinc-200 disabled:opacity-50',
+    'border border-white/10 bg-white/[0.03] text-zinc-200 hover:border-accent/50 hover:bg-accent/[0.06] active:scale-[0.98] disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:bg-white/[0.03]',
+  ghost: 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100 disabled:opacity-50',
 };
 
 export function Button({

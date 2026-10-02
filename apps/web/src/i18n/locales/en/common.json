@@ -13,23 +13,100 @@
   "home": {
     "files": {
       "title": "Files",
-      "description": "Download from any link or convert formats"
+      "description": "Download from any link or convert formats",
+      "tags": [
+        "Download",
+        "Convert"
+      ]
     },
     "audio": {
       "title": "Audio Tools",
-      "description": "Cut silences, clean noise, trim"
+      "description": "Cut silences, clean noise, trim",
+      "tags": [
+        "Cut silence",
+        "Fix audio"
+      ]
     },
     "image": {
       "title": "Image Tools",
-      "description": "Remove backgrounds, upscale with AI"
+      "description": "Remove backgrounds, upscale with AI",
+      "tags": [
+        "Remove background",
+        "Upscale"
+      ]
     },
     "video": {
       "title": "Face Tracking",
-      "description": "Reframe a video to follow the face"
+      "description": "Reframe a video to follow the face",
+      "tags": [
+        "AI",
+        "Auto-reframe"
+      ]
     },
     "captions": {
       "title": "Automatic Captions",
-      "description": "Transcribe and burn in styled captions"
+      "description": "Transcribe and burn in styled captions",
+      "tags": [
+        "Speech-to-text",
+        "Styled presets"
+      ]
+    },
+    "hero": {
+      "badge": "Runs on your computer",
+      "primary": "Explore the tools",
+      "secondary": "See it in action"
+    },
+    "launchpad": {
+      "eyebrow": "Launchpad",
+      "title": "Everything you edit with, one window.",
+      "open": "Open"
+    },
+    "showcase": {
+      "eyebrow": "How it works",
+      "title": "Drop a file. Get the result.",
+      "subtitle": "Pick a tool, tune a couple of options, and Editools does the heavy lifting in the background.",
+      "open": "Open this tool",
+      "tools": {
+        "files": {
+          "headline": "Get media in, in any format.",
+          "body": "Paste a link to save the video or audio, or convert a file you already have, without opening another app."
+        },
+        "audio": {
+          "headline": "Silence, gone.",
+          "body": "Preview the quiet parts, cut them out automatically, then clean noise and even out the loudness."
+        },
+        "image": {
+          "headline": "Clean cut-outs, sharper images.",
+          "body": "Remove a background in one click, or upscale a small image with AI and compare before and after."
+        },
+        "video": {
+          "headline": "The frame follows the face.",
+          "body": "Turn a wide shot into a vertical one that keeps the speaker centered the whole way through."
+        },
+        "captions": {
+          "headline": "Captions that people actually read.",
+          "body": "Transcribe locally, fix any word, pick a style and burn the captions into the video."
+        }
+      }
+    },
+    "formats": {
+      "label": "Works with the formats you already edit in"
+    },
+    "privacy": {
+      "eyebrow": "Private by design",
+      "title": "Your files stay yours.",
+      "local": {
+        "title": "Runs on your computer",
+        "body": "Processing and AI models run locally. Your files are never uploaded."
+      },
+      "accounts": {
+        "title": "No accounts",
+        "body": "Open the app and start working. There is nothing to sign up for."
+      },
+      "tracking": {
+        "title": "No tracking",
+        "body": "No analytics, no telemetry. Temporary files are deleted after processing."
+      }
     }
   },
   "filesHub": {
