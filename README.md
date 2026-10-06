@@ -12,9 +12,10 @@ Coming next: file converter and audio tools (trim, noise removal, normalization)
 
 ## Privacy
 
-- No accounts, no tracking, no analytics, no cookies.
-- Files exist only while a job is running and are deleted afterwards.
-- Future conversion/audio tools will process files locally in your browser whenever possible.
+- Your media is processed on your own computer and is never uploaded. Temporary files exist only while a job is running and are deleted afterwards.
+- An Editools account (free plan, sign-in by e-mail code, no password) is required. Only your account, plan and usage counts go to our servers.
+- Usage analytics record which tools are used and whether jobs succeed — never file names, links, transcripts or media content. You can opt out in your account settings, and export or delete your data at any time.
+- The renderer makes no third-party requests; the AI tools run fully offline.
 
 ## Requirements
 

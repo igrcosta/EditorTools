@@ -2,6 +2,8 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import type { FastifyRequest } from 'fastify';
+import { config } from '../config';
+import { uploadCap } from '../account/enforcement';
 
 export interface UploadedFile {
   inputPath: string;
@@ -16,7 +18,8 @@ export class UploadTooLargeError extends Error {}
  * plain fields sent alongside it (clients must append fields before the file).
  */
 export async function receiveUpload(request: FastifyRequest, tempDir: string): Promise<UploadedFile | null> {
-  const data = await request.file();
+  // The server-wide cap, tightened by the signed-in plan's (a free plan allows smaller files).
+  const data = await request.file({ limits: { fileSize: uploadCap(request, config.maxUploadBytes) } });
   if (!data) return null;
 
   const rawExt = path.extname(data.filename ?? '').toLowerCase();

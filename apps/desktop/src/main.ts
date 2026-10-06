@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage, session, shell } from 'electron';
+import type { OfflineCache, SessionStore } from '@editools/server/account';
+import cloudConfig from '../cloud.config.json';
 
 const isWin = process.platform === 'win32';
 const exe = (name: string) => (isWin ? `${name}.exe` : name);
@@ -41,6 +43,86 @@ function saveSettings(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Account session (kept between launches)
+// ---------------------------------------------------------------------------
+
+const sessionTokenPath = () => path.join(app.getPath('userData'), 'session.bin');
+const offlineCachePath = () => path.join(app.getPath('userData'), 'offline-cache.json');
+
+function removeFile(file: string): void {
+  try {
+    rmSync(file, { force: true });
+  } catch {
+    // nothing to remove, or not removable: the next write overwrites it
+  }
+}
+
+/**
+ * The refresh token is the one secret of the session, so it is encrypted with the OS (DPAPI on
+ * Windows) via Electron's safeStorage. Where encryption is not available it is NOT written to disk
+ * at all: the user then signs in again at each launch, which is safer than a plaintext token.
+ *
+ * The offline cache holds no secret — what protects it is the cloud's signature on the limits it
+ * contains — so it is plain JSON.
+ */
+function createSessionStore(): SessionStore {
+  return {
+    loadRefreshToken() {
+      try {
+        if (!safeStorage.isEncryptionAvailable()) return null;
+        return safeStorage.decryptString(readFileSync(sessionTokenPath()));
+      } catch {
+        return null;
+      }
+    },
+    saveRefreshToken(token) {
+      if (token === null) return removeFile(sessionTokenPath());
+      try {
+        if (!safeStorage.isEncryptionAvailable()) return;
+        writeFileSync(sessionTokenPath(), safeStorage.encryptString(token), { mode: 0o600 });
+      } catch {
+        // non-fatal: the user signs in again next launch
+      }
+    },
+    loadOfflineCache() {
+      try {
+        const raw = JSON.parse(readFileSync(offlineCachePath(), 'utf8')) as Partial<OfflineCache>;
+        return raw && raw.user && raw.signed && raw.entitlements ? (raw as OfflineCache) : null;
+      } catch {
+        return null;
+      }
+    },
+    saveOfflineCache(cache) {
+      if (cache === null) return removeFile(offlineCachePath());
+      try {
+        writeFileSync(offlineCachePath(), JSON.stringify(cache), 'utf8');
+      } catch {
+        // non-fatal: offline grace just will not survive a restart
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// External links (checkout)
+// ---------------------------------------------------------------------------
+
+/** Where the app may send the user's browser: Kiwify checkout pages and the configured sales site. */
+function isAllowedExternal(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  const extra: string[] = cloudConfig.externalHosts;
+  const allowed = ['kiwify.com.br', ...extra.map((h) => h.toLowerCase())];
+  return allowed.some((h) => host === h || host.endsWith(`.${h}`));
+}
+
+// ---------------------------------------------------------------------------
 // Embedded server
 // ---------------------------------------------------------------------------
 
@@ -49,6 +131,17 @@ function saveSettings(): void {
  * Must run BEFORE the server module is imported (its config reads env at import).
  */
 function configureEnvironment(): void {
+  // The hosted backend (Supabase). All three values are public by design — the anon key is meant to
+  // ship in clients; the service-role key and the signing PRIVATE key must never appear here. An
+  // environment variable wins, so a developer can point a build at a local `supabase start`.
+  const fromConfig: Array<[string, string]> = [
+    ['SUPABASE_URL', cloudConfig.supabaseUrl],
+    ['SUPABASE_ANON_KEY', cloudConfig.supabaseAnonKey],
+    ['LIMITS_PUBLIC_KEY', cloudConfig.limitsPublicKey],
+  ];
+  for (const [key, value] of fromConfig) {
+    if (value && !process.env[key]) process.env[key] = value;
+  }
   if (app.isPackaged) {
     const res = process.resourcesPath;
     process.env.YTDLP_PATH = path.join(res, 'bin', exe('yt-dlp'));
@@ -82,7 +175,7 @@ function configureEnvironment(): void {
 
 async function startEmbeddedServer(): Promise<number> {
   const { buildApp } = await import('@editools/server/app');
-  const server = await buildApp();
+  const server = await buildApp({ sessionStore: createSessionStore() });
 
   // Desktop-only endpoints (the web UI detects them to show desktop features).
   server.get('/api/desktop/settings', async () => ({ downloadDir: settings.downloadDir }));
@@ -98,6 +191,15 @@ async function startEmbeddedServer(): Promise<number> {
       saveSettings();
     }
     return { downloadDir: settings.downloadDir };
+  });
+
+  // The system browser is the only place a checkout may open; the renderer cannot choose the target
+  // freely (https only, allow-listed hosts), and the guard already requires the client header here.
+  server.post('/api/desktop/open-external', async (request, reply) => {
+    const url = (request.body as { url?: unknown } | null)?.url;
+    if (typeof url !== 'string' || !isAllowedExternal(url)) return reply.code(400).send({ error: 'blocked_host' });
+    await shell.openExternal(url);
+    return reply.code(204).send();
   });
 
   // Port 0 → the OS picks a free port; the app stays localhost-only.
@@ -174,7 +276,21 @@ function createWindow(port: number): void {
       sandbox: true,
     },
   });
-  void win.loadURL(`http://127.0.0.1:${port}`);
+  const origin = `http://127.0.0.1:${port}`;
+
+  // The window only ever shows the app. A link that would open another window, or navigate away, is
+  // handed to the system browser if it is an allowed https page, and dropped otherwise.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedExternal(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (event, url) => {
+    if (new URL(url).origin === origin) return;
+    event.preventDefault();
+    if (isAllowedExternal(url)) void shell.openExternal(url);
+  });
+
+  void win.loadURL(origin);
 }
 
 const gotLock = app.requestSingleInstanceLock();

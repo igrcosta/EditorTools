@@ -152,7 +152,12 @@ function formatAssTime(seconds: number): string {
 
 /** Escapes ASS's own special characters — text comes from ASR output or user edits, never trusted as markup. */
 function escapeAssText(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}').replace(/\n/g, '\\N');
+  // A bare \r must not survive into the file: line breaks (\r\n, \r, \n) all become one ASS "\N".
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/\r\n?|\n/g, '\\N');
 }
 
 function dialogueLine(start: number, end: number, text: string): string {

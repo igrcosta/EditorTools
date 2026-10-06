@@ -8,6 +8,7 @@ const NONE: FeaturesResponse = {
   faceTracking: false,
   captions: false,
   captionAlignLanguages: [],
+  accounts: false,
 };
 
 let cached: FeaturesResponse | null = null;

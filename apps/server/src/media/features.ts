@@ -45,7 +45,14 @@ export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResp
     modelPath('whisperModel') !== null;
 
   if (!config.imageToolsEnabled) {
-    return { removeBackground: false, upscale: false, faceTracking: false, captions, captionAlignLanguages: [] };
+    return {
+      removeBackground: false,
+      upscale: false,
+      faceTracking: false,
+      captions,
+      captionAlignLanguages: [],
+      accounts: config.accounts.enabled,
+    };
   }
   const ort = await canLoadOnnxRuntime();
   if (!ort) {
@@ -64,5 +71,6 @@ export async function getFeatures(log?: FastifyBaseLogger): Promise<FeaturesResp
     faceTracking: ort && modelPath('yunet') !== null,
     upscale: upscaleAvailable,
     captions,
+    accounts: config.accounts.enabled,
   };
 }

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { CONVERT_FORMATS, type DownloadStarted } from '@editools/shared';
 import { config } from '../config';
+import { planContext, rejectOverPlanDuration } from '../account/enforcement';
 import { apiError } from '../media/errors';
 import { createJob, createTempDir } from '../media/jobs';
 import { convertTask } from '../media/tasks';
@@ -29,6 +30,9 @@ export function registerConvertRoute(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
+      const over = await rejectOverPlanDuration(request, reply, tempDir, upload.inputPath);
+      if (over) return over;
+
       const job = await createJob(
         convertTask({
           inputPath: upload.inputPath,
@@ -36,6 +40,7 @@ export function registerConvertRoute(app: FastifyInstance): void {
           title: titleFrom(upload.originalName),
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });

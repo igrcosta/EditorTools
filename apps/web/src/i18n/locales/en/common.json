@@ -110,12 +110,12 @@
         "body": "Processing and AI models run locally. Your files are never uploaded."
       },
       "accounts": {
-        "title": "No accounts",
-        "body": "Open the app and start working. There is nothing to sign up for."
+        "title": "Free to start",
+        "body": "Sign in with just your e-mail, no password. The free plan includes every tool with a daily limit; Pro lifts it."
       },
       "tracking": {
-        "title": "No tracking",
-        "body": "No analytics, no telemetry. Temporary files are deleted after processing."
+        "title": "Honest usage data",
+        "body": "We count which tools are used, never your files, links or content, to make Editools better. You can opt out any time."
       }
     }
   },
@@ -159,7 +159,7 @@
     "saveFile": "Save file"
   },
   "footer": {
-    "privacy": "No accounts. No tracking. Files are deleted after processing.",
+    "privacy": "Your media is processed on your computer and never uploaded. We keep only your account and usage counts.",
     "legal": "For your own or licensed content — respect each platform's terms.",
     "icons": "Interface icons by"
   },

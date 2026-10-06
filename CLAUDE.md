@@ -23,7 +23,7 @@ The AI tools (Remove Background, Upscale, Face Tracking, Automatic Captions) are
 
 ## Development rules (from spec §50 — do not violate)
 
-1. Do not implement features outside the current phase without explicit approval. Out of scope now: accounts, subscriptions, cloud storage. (Local, on-device transcription for Automatic Captions is in scope — cloud-based transcription is not.)
+1. Do not implement features outside the current phase without explicit approval. **Accounts, subscriptions (Kiwify) and usage analytics are in scope since 2026-10** (explicit approval from the founder; the plan is: Supabase Auth/Postgres/Edge Functions as the hosted backend, free plan with a daily quota + per-job limits, Pro via Kiwify webhooks, own event pipeline + admin dashboard). Still out of scope: any cloud storage or processing of the user's media — files are never uploaded — and cloud-based transcription. (Local, on-device transcription for Automatic Captions is in scope.)
 2. Working functionality over speculative abstraction.
 3. Create reusable architecture only where repetition is real.
 4. Every processing operation needs success, failure, loading, and cancel states.
@@ -45,5 +45,7 @@ Single-container Docker deploy (see `Dockerfile` + `render.yaml` for Render.com)
 - Server binds to `127.0.0.1` by default; `0.0.0.0` only inside a container behind a platform proxy (`HOST` env).
 - yt-dlp/ffmpeg are always spawned with argument arrays — never build shell strings from user input.
 - Files on disk use the fixed `%(id)s.%(ext)s` template inside a per-job temp dir; user-facing filenames are sanitized and only appear in `Content-Disposition`.
-- No telemetry, no analytics, no third-party calls from the frontend, no URL logging at `info` level. The only network access besides yt-dlp is `scripts/fetch-vendor.mjs` at install time (pinned URLs, checksums verified); the AI tools themselves run fully offline.
+- The renderer makes no third-party calls (CSP `connect-src 'self' blob:`), and URLs are never logged at `info` level. Network access is deliberate and limited to: yt-dlp; `scripts/fetch-vendor.mjs` at install time (pinned URLs, checksums verified); and the account layer's calls from the **local server / Electron main process** to the project's Supabase backend only (auth, entitlements, usage reservation, event ingestion). The AI tools themselves still run fully offline and the user's media never leaves the machine.
+- Accounts: tokens live in the local server's memory (refresh token encrypted with Electron `safeStorage`), never in the renderer. The Supabase service-role key, Kiwify secrets and the entitlement signing key exist only as Edge Function secrets — never in the repo, the installer or logs. Admin checks happen in the database/server, never client-side only. Plan limits live in the `plans` table, not in code. Account routes require `Host`/`Origin` validation plus a per-launch token (a web page must not be able to drive the local API).
+- Analytics: a strict, shared event schema (allow-listed names and props). NEVER record file names or paths, media URLs (platform/domain only), transcripts, media content, free text or e-mail addresses. Respect the user's consent flag, and wipe the local event queue on logout.
 - Third-party licenses of shipped binaries/models are listed in `THIRD_PARTY_LICENSES.md`; do not add models with non-commercial or AGPL terms (e.g. BRIA RMBG, upscayl-ncnn).

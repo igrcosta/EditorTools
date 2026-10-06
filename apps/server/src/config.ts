@@ -20,6 +20,11 @@ function findVendorDir(): string | null {
 
 const vendorDir = findVendorDir();
 const exe = (name: string) => (process.platform === 'win32' ? `${name}.exe` : name);
+const host = process.env.HOST ?? '127.0.0.1';
+/** Bound to this machine only (the desktop app, plain dev) as opposed to a shared server (Docker/Render). */
+const loopbackOnly = ['127.0.0.1', 'localhost', '::1'].includes(host);
+const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '') || null;
+const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? '').trim() || null;
 
 export const config = {
   /**
@@ -27,7 +32,9 @@ export const config = {
    * Docker image) set HOST=0.0.0.0 — inside a container that is safe because
    * only the platform's proxy reaches the port.
    */
-  host: process.env.HOST ?? '127.0.0.1',
+  host,
+  /** True when only this machine can reach the server. */
+  loopbackOnly,
   port: Number(process.env.PORT ?? 3001),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   /** When set, logs also go to this file (the desktop app points it at userData/logs — no visible console otherwise). */
@@ -86,4 +93,18 @@ export const config = {
   maxCaptionSeconds: Number(process.env.MAX_CAPTION_SECONDS ?? 1800),
   /** Bundled OFL font files (see captions.ts's CAPTION_FONT_FILES) for custom caption templates. */
   fontsDir: process.env.FONTS_DIR ?? (vendorDir ? path.join(vendorDir, 'fonts') : null),
+
+  // --- Accounts (Supabase). Off unless the project URL and anon key are both set: with no backend
+  // configured the server behaves exactly as before (no login, no plan limits) — the web demo and
+  // plain `npm run dev`. The desktop build supplies them (apps/desktop/cloud.config.json). The anon
+  // key is public by design; the service-role key must never be configured here. ---
+  accounts: {
+    supabaseUrl,
+    supabaseAnonKey,
+    /** Ed25519 public key (base64, SPKI DER or raw 32 bytes) that verifies the signed plan limits. */
+    limitsPublicKey: (process.env.LIMITS_PUBLIC_KEY ?? '').trim() || null,
+    // Only ever on a server bound to this machine: the session lives in this process's memory, so on a
+    // shared server (Docker/Render) every visitor would share one account.
+    enabled: supabaseUrl !== null && supabaseAnonKey !== null && loopbackOnly,
+  },
 } as const;

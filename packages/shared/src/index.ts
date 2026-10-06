@@ -307,6 +307,8 @@ export interface FeaturesResponse {
   captions: boolean;
   /** Caption languages that get precise (forced-alignment) word timing on this install. */
   captionAlignLanguages: string[];
+  /** True when this server is wired to the accounts backend (login + plan limits apply). */
+  accounts: boolean;
 }
 
 export const ERROR_CODES = [
@@ -332,6 +334,13 @@ export const ERROR_CODES = [
   'no_face_found',
   'no_speech_detected',
   'feature_unavailable',
+  'unauthenticated',
+  'plan_limit',
+  'quota_exceeded',
+  'account_offline',
+  'invalid_code',
+  'rate_limited',
+  'forbidden',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -339,4 +348,8 @@ export type ErrorCode = (typeof ERROR_CODES)[number];
 export interface ApiError {
   error: ErrorCode;
   message: string;
+  /** Extra context for plan errors, e.g. when the quota resets or which limit was hit. */
+  details?: { resetsAt?: string; limit?: string; max?: number | number[] };
 }
+
+export * from './plans';

@@ -62,13 +62,22 @@ export function downloadTask(req: {
   height?: number;
   title?: string;
   cookiesFromBrowser?: CookieBrowser;
+  /** The plan's duration cap; defaults to the server-wide one. */
+  maxDurationSeconds?: number;
 }): JobTask {
   return {
     title: req.title,
     maxAttempts: 3,
     start: (tempDir, callbacks) =>
       runDownload(
-        { url: req.url, output: req.output, height: req.height, cookiesFromBrowser: req.cookiesFromBrowser, tempDir },
+        {
+          url: req.url,
+          output: req.output,
+          height: req.height,
+          cookiesFromBrowser: req.cookiesFromBrowser,
+          maxDurationSeconds: req.maxDurationSeconds,
+          tempDir,
+        },
         callbacks,
       ),
     resolveOutput: async (tempDir) => {

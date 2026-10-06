@@ -55,10 +55,17 @@ const MESSAGES: Record<ErrorCode, string> = {
   no_face_found: "We couldn't find a face in this video.",
   no_speech_detected: "We couldn't find any speech in this video.",
   feature_unavailable: 'This tool is only available in the Editools desktop app.',
+  unauthenticated: 'Sign in to your Editools account to use this tool.',
+  plan_limit: "This is above your plan's limits. Upgrade to Pro to remove them.",
+  quota_exceeded: "You've used today's free runs. They reset tomorrow, or upgrade to Pro for unlimited use.",
+  account_offline: 'Connect to the internet to verify your account, then try again.',
+  invalid_code: "That code isn't right, or it has expired. Check it or ask for a new one.",
+  rate_limited: 'Too many attempts. Wait a minute and try again.',
+  forbidden: "You don't have access to this.",
 };
 
-export function apiError(code: ErrorCode): ApiError {
-  return { error: code, message: MESSAGES[code] };
+export function apiError(code: ErrorCode, details?: ApiError['details']): ApiError {
+  return details ? { error: code, message: MESSAGES[code], details } : { error: code, message: MESSAGES[code] };
 }
 
 export function stderrOf(err: unknown): string {

@@ -18,7 +18,7 @@ const FORMATS = [...CONVERT_FORMATS, 'png', 'jpg', 'webp'].map((f) => f.toUpperC
 
 const PRIVACY = [
   { key: 'local', icon: 'fi-rr-laptop' },
-  { key: 'accounts', icon: 'fi-rr-user-slash' },
+  { key: 'accounts', icon: 'fi-rr-user' },
   { key: 'tracking', icon: 'fi-rr-shield-check' },
 ] as const;
 

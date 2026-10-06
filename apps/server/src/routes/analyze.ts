@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { COOKIE_BROWSERS, type AnalyzeResult } from '@editools/shared';
+import { sendLimit, limitsOf } from '../account/enforcement';
 import { config } from '../config';
 import { apiError, mapYtdlpError, stderrOf } from '../media/errors';
 import { analyzeMedia } from '../media/ytdlp';
@@ -32,6 +33,10 @@ export function registerAnalyzeRoute(app: FastifyInstance): void {
       return reply.code(422).send(apiError(mapYtdlpError(stderrOf(err))));
     }
 
+    const planMax = limitsOf(request)?.maxMediaSeconds ?? null;
+    if (planMax !== null && result.durationSeconds !== null && result.durationSeconds > planMax) {
+      return sendLimit(reply, { ok: false, limit: 'maxMediaSeconds', max: planMax });
+    }
     if (result.durationSeconds !== null && result.durationSeconds > config.maxDurationSeconds) {
       return reply.code(422).send(apiError('too_long'));
     }

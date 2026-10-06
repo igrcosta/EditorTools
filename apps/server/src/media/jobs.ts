@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { ErrorCode, JobMeta, JobStage, JobState, JobStatus } from '@editools/shared';
+import type { ErrorCode, JobMeta, JobStage, JobState, JobStatus, ToolId } from '@editools/shared';
 import { config } from '../config';
 import { mapYtdlpError, stderrOf } from './errors';
 import type { ProcessHandle } from './ffmpeg';
@@ -28,6 +28,18 @@ export interface JobTask {
   resolveOutput(tempDir: string): Promise<string | undefined>;
 }
 
+/**
+ * Who started a job and which run of the daily quota it holds. Created by the account layer's
+ * request hook (account/enforcement.ts) and handed to createJob(), which sets `committed`: from
+ * then on the job owns the reservation, and gives it back if it fails or is canceled.
+ */
+export interface JobContext {
+  tool: ToolId;
+  userId: string;
+  reservationId: string | null;
+  committed: boolean;
+}
+
 export interface Job {
   id: string;
   status: JobStatus;
@@ -44,6 +56,10 @@ export interface Job {
   canceled: boolean;
   attempts: number;
   createdAt: number;
+  /** Set when the job first starts running / when it reaches done or error. */
+  startedAt?: number;
+  finishedAt?: number;
+  context?: JobContext;
 }
 
 type Logger = { debug: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void };
@@ -56,11 +72,41 @@ const jobs = new Map<string, Job>();
 const queue: Job[] = [];
 let running = 0;
 
+const finishedListeners = new Set<(job: Job) => void>();
+const notified = new WeakSet<Job>();
+
+/** Calls `listener` once per job, when it reaches `done` or `error` (which includes canceled). */
+export function onJobFinished(listener: (job: Job) => void): () => void {
+  finishedListeners.add(listener);
+  return () => finishedListeners.delete(listener);
+}
+
+/**
+ * The only place a job's status changes. Keeping it in one function is what lets the quota be
+ * given back, and usage recorded, exactly once per job no matter how it ended.
+ */
+function setStatus(job: Job, status: JobStatus, error?: ErrorCode): void {
+  job.status = status;
+  if (error !== undefined) job.error = error;
+  if (status === 'running') job.startedAt ??= Date.now();
+  if ((status === 'done' || status === 'error') && !notified.has(job)) {
+    notified.add(job);
+    job.finishedAt = Date.now();
+    for (const listener of finishedListeners) {
+      try {
+        listener(job);
+      } catch (err) {
+        log.warn({ jobId: job.id, err: String(err) }, 'job listener failed');
+      }
+    }
+  }
+}
+
 /**
  * Queues a task. Pass `tempDir` when the route already staged files (uploads)
  * into a directory created with createTempDir(); otherwise one is created.
  */
-export async function createJob(task: JobTask, tempDir?: string): Promise<Job | 'busy'> {
+export async function createJob(task: JobTask, tempDir?: string, context?: JobContext): Promise<Job | 'busy'> {
   if (running + queue.length >= config.maxConcurrentJobs + config.maxQueuedJobs) return 'busy';
 
   const job: Job = {
@@ -72,7 +118,10 @@ export async function createJob(task: JobTask, tempDir?: string): Promise<Job | 
     canceled: false,
     attempts: 0,
     createdAt: Date.now(),
+    context,
   };
+  // From here the job owns the quota run that was reserved for it (see JobContext).
+  if (context) context.committed = true;
   jobs.set(job.id, job);
   queue.push(job);
   pump();
@@ -105,8 +154,7 @@ export async function cancelJob(job: Job): Promise<void> {
   const queued = queue.indexOf(job);
   if (queued !== -1) {
     queue.splice(queued, 1);
-    job.status = 'error';
-    job.error = 'canceled';
+    setStatus(job, 'error', 'canceled');
     await destroyJob(job);
     return;
   }
@@ -126,7 +174,7 @@ function pump(): void {
 
 function start(job: Job): void {
   running += 1;
-  job.status = 'running';
+  setStatus(job, 'running');
   job.stage = 'downloading';
   job.handle = job.task.start(job.tempDir, {
     onProgress: (percent) => {
@@ -149,14 +197,13 @@ function start(job: Job): void {
       // failures transparently before surfacing an error.
       if (!job.canceled && code === 'download_failed' && job.attempts + 1 < job.task.maxAttempts) {
         job.attempts += 1;
-        job.status = 'queued';
+        setStatus(job, 'queued');
         job.progress = null;
         job.stage = undefined;
         queue.unshift(job);
         return;
       }
-      job.status = 'error';
-      job.error = code;
+      setStatus(job, 'error', code);
       await cleanupTempDir(job);
     })
     .finally(() => {
@@ -168,15 +215,13 @@ function start(job: Job): void {
 async function finalize(job: Job): Promise<void> {
   const output = await job.task.resolveOutput(job.tempDir).catch(() => undefined);
   if (job.canceled) {
-    job.status = 'error';
-    job.error = 'canceled';
+    setStatus(job, 'error', 'canceled');
     await cleanupTempDir(job);
     return;
   }
   if (!output) {
     // Exited 0 without producing output (e.g. match-filter rejected the media).
-    job.status = 'error';
-    job.error = 'download_failed';
+    setStatus(job, 'error', 'download_failed');
     await cleanupTempDir(job);
     return;
   }
@@ -186,7 +231,7 @@ async function finalize(job: Job): Promise<void> {
   job.filename = sanitizeFilename(job.task.title, path.basename(output, ext)) + ext;
   job.progress = 100;
   job.stage = undefined;
-  job.status = 'done';
+  setStatus(job, 'done');
 }
 
 /** Strips path separators, control chars and Windows-reserved characters from a display filename. */

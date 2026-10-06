@@ -23,6 +23,7 @@ import {
   type DownloadStarted,
 } from '@editools/shared';
 import { config } from '../config';
+import { planContext, rejectOverPlanDuration } from '../account/enforcement';
 import { apiError } from '../media/errors';
 import { getFeatures } from '../media/features';
 import { createJob, createTempDir } from '../media/jobs';
@@ -132,6 +133,9 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
+      const over = await rejectOverPlanDuration(request, reply, tempDir, upload.inputPath);
+      if (over) return over;
+
       const { aspect, zoom, smoothing, anchorX, anchorY, subjectX, subjectY } = parsed.data;
       const job = await createJob(
         faceTrackTask({
@@ -145,6 +149,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
           title: `${titleFrom(upload.originalName)} (face tracked)`,
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });
@@ -172,6 +177,9 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
+      const over = await rejectOverPlanDuration(request, reply, tempDir, upload.inputPath);
+      if (over) return over;
+
       const job = await createJob(
         transcribeCaptionsTask({
           inputPath: upload.inputPath,
@@ -179,6 +187,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
           language: parsed.data.language,
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });
@@ -206,6 +215,9 @@ export function registerVideoRoutes(app: FastifyInstance): void {
         return reply.code(400).send(apiError('invalid_file'));
       }
 
+      const over = await rejectOverPlanDuration(request, reply, tempDir, upload.inputPath);
+      if (over) return over;
+
       const { words, preset, customStyle, positionX, positionY, scale } = parsed.data;
       const job = await createJob(
         renderCaptionsTask({
@@ -219,6 +231,7 @@ export function registerVideoRoutes(app: FastifyInstance): void {
           title: `${titleFrom(upload.originalName)} (captioned)`,
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { BG_OUTPUTS, UPSCALE_MODELS, UPSCALE_OUTPUTS, type DownloadStarted } from '@editools/shared';
 import { config } from '../config';
+import { planContext, rejectOverPlan } from '../account/enforcement';
 import { apiError } from '../media/errors';
 import { getFeatures } from '../media/features';
 import { createJob, createTempDir } from '../media/jobs';
@@ -40,6 +41,7 @@ export function registerImageRoutes(app: FastifyInstance): void {
           title: `${titleFrom(upload.originalName)} (no background)`,
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });
@@ -68,6 +70,8 @@ export function registerImageRoutes(app: FastifyInstance): void {
       }
 
       const { model, scale, output } = parsed.data;
+      const over = await rejectOverPlan(request, reply, tempDir, { upscaleScale: scale });
+      if (over) return over;
       const job = await createJob(
         upscaleTask({
           inputPath: upload.inputPath,
@@ -77,6 +81,7 @@ export function registerImageRoutes(app: FastifyInstance): void {
           title: `${titleFrom(upload.originalName)} (${scale}x)`,
         }),
         tempDir,
+        planContext(request),
       );
       if (job === 'busy') {
         await rm(tempDir, { recursive: true, force: true });

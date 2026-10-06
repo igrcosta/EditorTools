@@ -1,0 +1,118 @@
+{
+  "loading": "Loading your account…",
+  "unreachable": {
+    "title": "Connect to the internet to sign in",
+    "description": "Editools could not reach the account service and your offline access has expired. Check your connection and try again.",
+    "retry": "Try again"
+  },
+  "login": {
+    "title": "Sign in to Editools",
+    "description": "Free to start. We email you a 6-digit code — no password to remember.",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "sendCode": "Send me a code",
+    "sending": "Sending…",
+    "codeSent": "We sent a 6-digit code to {{email}}. It can take a minute to arrive — check your spam folder too.",
+    "code": "6-digit code",
+    "verify": "Sign in",
+    "verifying": "Checking…",
+    "resend": "Send a new code",
+    "resendIn": "Send a new code in {{seconds}}s",
+    "changeEmail": "Use a different email"
+  },
+  "chip": {
+    "runsLeft": "{{left}} left today",
+    "unlimited": "Pro",
+    "signIn": "Sign in",
+    "account": "Account"
+  },
+  "account": {
+    "title": "Your account",
+    "description": "Your plan, today's usage and your privacy choices.",
+    "plan": "Plan",
+    "plans": { "free": "Free", "pro": "Pro" },
+    "status": {
+      "none": "",
+      "active": "Active",
+      "past_due": "Payment late — access continues for a few days",
+      "canceled": "Canceled — access until {{date}}",
+      "refunded": "Refunded",
+      "chargeback": "Payment disputed"
+    },
+    "usage": "Today's usage",
+    "usageUnlimited": "{{used}} runs today — no daily limit",
+    "usageLimited": "{{used}} of {{limit}} runs today",
+    "resets": "Resets {{when}}",
+    "offline": "You are offline. Editools is working on the limits it saved last time you were connected.",
+    "upgrade": "See Pro",
+    "limitsTitle": "What your plan includes",
+    "limits": {
+      "dailyRuns": "Runs per day",
+      "maxMediaSeconds": "Longest video or audio",
+      "maxUploadBytes": "Largest file",
+      "maxDownloadHeight": "Highest download quality",
+      "allowedUpscaleScales": "Upscale sizes",
+      "unlimited": "No limit",
+      "minutes": "{{count}} min",
+      "megabytes": "{{count}} MB",
+      "gigabytes": "{{count}} GB",
+      "height": "up to {{count}}p",
+      "scales": "×{{list}}"
+    },
+    "privacyTitle": "Privacy",
+    "privacyDescription": "Your files never leave your computer. With this on, Editools also sends anonymous usage counts (which tools you use, whether they worked) so we can improve them. Never file names, links, text or your email.",
+    "analytics": "Share anonymous usage data",
+    "yourData": "Your data",
+    "export": "Download my data",
+    "exporting": "Preparing…",
+    "delete": "Delete my account",
+    "deleteConfirm": "This permanently deletes your account and usage history. This cannot be undone.",
+    "deleteConfirmButton": "Yes, delete everything",
+    "deleting": "Deleting…",
+    "cancel": "Cancel",
+    "signOut": "Sign out",
+    "devTools": "Developer tools",
+    "devDescription": "Only admins see this. Changes are recorded in the audit log.",
+    "devSetPlan": "Switch plan",
+    "devResetQuota": "Reset today's usage"
+  },
+  "consent": {
+    "title": "Help us improve Editools",
+    "description": "Share anonymous usage data — which tools are used and whether they worked. Never your files, links, text or email. You can change this any time in Account.",
+    "accept": "Share usage data",
+    "decline": "No thanks"
+  },
+  "pricing": {
+    "title": "Editools Pro",
+    "description": "Remove the daily limit and unlock every quality option.",
+    "freeTitle": "Free",
+    "proTitle": "Pro",
+    "currentPlan": "Your current plan",
+    "freeItems": "All tools · {{runs}} runs a day · up to {{minutes}} min per file",
+    "proItems": "All tools · no daily limit · full quality · long files",
+    "subscribe": "Subscribe to Pro",
+    "comingSoon": "Checkout coming soon",
+    "opening": "Opening checkout…",
+    "checkoutOpened": "The checkout opened in your browser. Come back here when you have paid — Editools unlocks Pro by itself, usually within a minute (Pix and boleto can take longer).",
+    "alreadyPaid": "I already paid",
+    "checking": "Checking…",
+    "notYet": "No payment found yet for {{email}}. Pix and boleto can take a while — try again in a few minutes.",
+    "activated": "Pro is active. Thank you!",
+    "sameEmail": "Use the same email you signed in with ({{email}}) at checkout."
+  },
+  "upgrade": {
+    "quotaTitle": "You used all of today's free runs",
+    "quotaDescription": "Your runs come back {{when}}. Pro has no daily limit.",
+    "quotaDescriptionNoTime": "Your runs come back tomorrow. Pro has no daily limit.",
+    "limitTitle": "This is beyond the free plan",
+    "limitDescription": "Pro lifts this limit.",
+    "seePro": "See Pro",
+    "signIn": "Sign in to continue"
+  },
+  "errors": {
+    "invalid_code": "That code did not work. Check it and try again, or ask for a new one.",
+    "rate_limited": "Too many attempts. Wait a minute and try again.",
+    "account_offline": "Could not reach the account service. Check your connection.",
+    "generic": "Something went wrong. Please try again."
+  }
+}

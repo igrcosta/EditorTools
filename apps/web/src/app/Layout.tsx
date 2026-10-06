@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { UpgradeNotice } from '../components/UpgradeNotice';
+import { AccountChip } from '../features/account/AccountChip';
 
 const NAV = [
   { to: '/files', key: 'files', icon: 'fi-rr-folder-download' },
@@ -130,8 +132,10 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
+          <AccountChip />
         </div>
       </header>
+      <UpgradeNotice />
 
       <main
         className={

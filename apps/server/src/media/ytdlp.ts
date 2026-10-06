@@ -83,7 +83,14 @@ export interface DownloadCallbacks {
 }
 
 export function runDownload(
-  opts: { url: string; output: OutputFormat; height?: number; cookiesFromBrowser?: CookieBrowser | null; tempDir: string },
+  opts: {
+    url: string;
+    output: OutputFormat;
+    height?: number;
+    cookiesFromBrowser?: CookieBrowser | null;
+    maxDurationSeconds?: number;
+    tempDir: string;
+  },
   callbacks: DownloadCallbacks,
 ): DownloadHandle {
   const flags: Record<string, unknown> = {
@@ -91,7 +98,7 @@ export function runDownload(
     ...cookieFlags(opts.cookiesFromBrowser),
     newline: true,
     output: path.join(opts.tempDir, '%(id)s.%(ext)s'),
-    matchFilter: `duration <=? ${config.maxDurationSeconds}`,
+    matchFilter: `duration <=? ${opts.maxDurationSeconds ?? config.maxDurationSeconds}`,
     maxFilesize: config.maxFilesize,
     // Fragmented sources (YouTube DASH/HLS) download much faster in parallel.
     concurrentFragments: 8,
