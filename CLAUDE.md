@@ -18,6 +18,7 @@ The AI tools (Remove Background, Upscale, Face Tracking, Automatic Captions) are
 - Pixel work goes through ffmpeg (decode to rawvideo → model → `alphamerge`/`crop`+`sendcmd`), not an image library; `onnxruntime-node` is the only ML runtime and it is imported dynamically so the web deploy never loads it.
 - `apps/server/src/security/urlGuard.ts` — SSRF guard. Every user-provided URL MUST pass through `assertSafeUrl` before reaching yt-dlp.
 - `apps/web/src/features/<tool>/` — one folder per tool (page + hook). Design system primitives in `apps/web/src/components/`.
+- The landing's product previews (`features/home`: `Showcase.tsx`, `demos.tsx`) are exempt from `prefers-reduced-motion` on purpose (`.demo-stage` in `index.css`): that flag is on in VMs, remote desktop and battery saver, and used to freeze every preview on its first frame. They are content, so they play regardless, and the pause button on the showcase window (remembered in localStorage) is the control. The face-tracking preview is real media from one real run of the app (`public/demo`), kept playing by `useLoopingVideo` (imperative `muted`, play retries on `canplay`, watchdog, paused when hidden); the image and face-tracking previews both show real tool output, not illustrations.
 - UI strings: always through i18next (`apps/web/src/i18n/locales/en/`). English only for now; structure is ready for PT-BR.
 
 ## Development rules (from spec §50 — do not violate)

@@ -95,7 +95,9 @@
       "track": {
         "before": "Original",
         "after": "Face tracked · 9:16"
-      }
+      },
+      "pauseDemos": "Pause demos",
+      "playDemos": "Play demos"
     },
     "formats": {
       "label": "Works with the formats you already edit in"

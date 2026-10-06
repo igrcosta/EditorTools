@@ -153,10 +153,15 @@ h1 {
   animation: wave-skeleton-pulse 1.1s ease-in-out infinite;
 }
 
+/* Interface motion follows the OS setting. The landing's product previews (.demo-stage, see
+   features/home/Showcase.tsx) are exempt: they ARE the content, and "Show animations" is often off
+   for reasons unrelated to preference (virtual machines, remote desktop, battery saver), which used
+   to freeze every preview on its first frame. They stay under the user's control through the
+   pause button on the showcase window instead. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :not(.demo-stage, .demo-stage *),
+  :not(.demo-stage, .demo-stage *)::before,
+  :not(.demo-stage, .demo-stage *)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInView } from '../../lib/useInView';
-import { IMAGE_DEMO_ASSETS, ToolDemo, type DemoKey } from './demos';
+import { DemoPlayback, IMAGE_DEMO_ASSETS, ToolDemo, type DemoKey } from './demos';
 
 const TOOLS: ReadonlyArray<{ key: DemoKey; to: string; icon: string; title: string }> = [
   { key: 'files', to: '/files', icon: 'fi-rr-folder-download', title: 'home.files.title' },
@@ -13,10 +13,26 @@ const TOOLS: ReadonlyArray<{ key: DemoKey; to: string; icon: string; title: stri
 ];
 
 const CYCLE_MS = 7000;
+const PAUSED_KEY = 'editools.demos.paused';
+
+function loadPaused(): boolean {
+  try {
+    return window.localStorage.getItem(PAUSED_KEY) === '1';
+  } catch {
+    return false; // storage blocked: just start playing
+  }
+}
 
 /**
- * App-window mock with one looping illustration per tool. It cycles on its own while on screen,
- * pauses on hover and when scrolled away, and never auto-advances under prefers-reduced-motion.
+ * App-window mock with one looping illustration per tool. It cycles on its own while on screen and
+ * pauses on hover, when scrolled away, when the window is hidden, and when the user presses the
+ * pause button (remembered between sessions).
+ *
+ * It deliberately does NOT follow prefers-reduced-motion (the `.demo-stage` class exempts it in
+ * index.css): these are product previews, and that OS flag is routinely on for reasons that have
+ * nothing to do with preference (virtual machines, remote desktop, battery saver) — where it used
+ * to leave every preview frozen on its first frame. The pause button is the accessible control.
+ *
  * The timer is the CSS animation of the active tab's underline: when it ends, the next tool plays,
  * so pausing the animation pauses the cycle.
  */
@@ -25,22 +41,25 @@ export function Showcase() {
   const [windowRef, inView] = useInView<HTMLDivElement>();
   const [active, setActive] = useState(0);
   const [hovering, setHovering] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [userPaused, setUserPaused] = useState(loadPaused);
 
   // Warm the cache for the Image tab's photo, so it doesn't pop in when the tab comes up.
   useEffect(() => {
     for (const src of IMAGE_DEMO_ASSETS) new Image().src = src;
   }, []);
 
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(query.matches);
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
+  const togglePaused = () => {
+    setUserPaused((paused) => {
+      try {
+        window.localStorage.setItem(PAUSED_KEY, paused ? '0' : '1');
+      } catch {
+        // not persisted: still applies to this session
+      }
+      return !paused;
+    });
+  };
 
-  const running = inView && !hovering;
+  const running = inView && !hovering && !userPaused;
   const current = TOOLS[active] ?? TOOLS[0]!;
 
   return (
@@ -48,7 +67,7 @@ export function Showcase() {
       ref={windowRef}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => setHovering(false)}
-      className={`panel overflow-hidden rounded-2xl shadow-[0_50px_140px_-50px_rgba(145,70,255,0.4)] ${
+      className={`demo-stage panel overflow-hidden rounded-2xl shadow-[0_50px_140px_-50px_rgba(145,70,255,0.4)] ${
         running ? '' : 'demo-paused'
       }`}
     >
@@ -59,6 +78,15 @@ export function Showcase() {
           <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
         </span>
         <span className="font-mono text-xs text-zinc-500">{t('appName').toLowerCase()}</span>
+        <button
+          type="button"
+          onClick={togglePaused}
+          aria-pressed={userPaused}
+          className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs text-zinc-400 transition hover:border-accent/50 hover:text-zinc-100"
+        >
+          <i className={userPaused ? 'fi-rr-play' : 'fi-rr-pause'} aria-hidden="true" />
+          {userPaused ? t('home.showcase.playDemos') : t('home.showcase.pauseDemos')}
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-[19rem_1fr]">
@@ -105,17 +133,15 @@ export function Showcase() {
                 </span>
                 {selected && (
                   <span className="absolute inset-x-0 bottom-0 h-px bg-white/10">
-                    {!reducedMotion && (
-                      <span
-                        key={`${key}-timer`}
-                        className="block h-full origin-left bg-accent-text"
-                        style={{
-                          animation: `tab-timer ${CYCLE_MS}ms linear forwards`,
-                          animationPlayState: running ? 'running' : 'paused',
-                        }}
-                        onAnimationEnd={() => setActive((n) => (n + 1) % TOOLS.length)}
-                      />
-                    )}
+                    <span
+                      key={`${key}-timer`}
+                      className="block h-full origin-left bg-accent-text"
+                      style={{
+                        animation: `tab-timer ${CYCLE_MS}ms linear forwards`,
+                        animationPlayState: running ? 'running' : 'paused',
+                      }}
+                      onAnimationEnd={() => setActive((n) => (n + 1) % TOOLS.length)}
+                    />
                   </span>
                 )}
               </button>
@@ -126,7 +152,9 @@ export function Showcase() {
         <div className="flex min-h-80 flex-col bg-surface-2/60 lg:aspect-video lg:min-h-0">
           <div className="relative min-h-0 flex-1">
             <div key={current.key} className="page-enter absolute inset-0">
-              <ToolDemo tool={current.key} />
+              <DemoPlayback.Provider value={running}>
+                <ToolDemo tool={current.key} />
+              </DemoPlayback.Provider>
             </div>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-line bg-black/30 px-5 py-3.5">
