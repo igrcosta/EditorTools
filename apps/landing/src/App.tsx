@@ -62,11 +62,11 @@ function HeroTitle({ text }: { text: string }) {
     return () => cancelAnimationFrame(id);
   }, []);
   return (
-    <h1 className="mt-7 max-w-4xl font-display text-5xl leading-[0.98] sm:text-7xl">
+    <h1 className="mt-7 max-w-4xl font-display text-5xl leading-[0.98] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)] sm:text-7xl">
       {text.split(' ').map((word, i) => (
         <span
           key={`${word}-${i}`}
-          className="reveal text-fade mr-[0.22em] inline-block last:mr-0"
+          className="reveal mr-[0.22em] inline-block text-white last:mr-0"
           data-in={shown}
           style={{ '--reveal-delay': `${120 + i * 90}ms`, '--reveal-distance': '28px', '--reveal-blur': '10px' } as CSSProperties}
         >
@@ -82,6 +82,7 @@ function Hero() {
     <section className="relative flex min-h-[min(92svh,900px)] items-center justify-center overflow-hidden bg-black">
       <DotField className="absolute inset-0" speed={1.4} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_32%_at_50%_55%,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.42)_60%,transparent_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-zinc-950" />
 
       <div className="relative z-10 flex flex-col items-center px-4 pt-28 pb-24 text-center">
@@ -94,7 +95,7 @@ function Hero() {
           style={{ filter: 'drop-shadow(0 0 28px rgba(132,77,234,0.55))' }}
         />
         <Reveal delay={60} className="mt-7">
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-4 pl-3 text-xs text-zinc-300 backdrop-blur">
+          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-zinc-950/80 py-1.5 pr-4 pl-3 text-xs text-zinc-200 backdrop-blur">
             <span className="relative flex h-2 w-2">
               <span className="pulse-ring absolute inset-0 rounded-full bg-accent-text" />
               <span className="relative h-2 w-2 rounded-full bg-accent-text" />
@@ -102,11 +103,10 @@ function Hero() {
             App para Windows · roda no seu computador
           </span>
         </Reveal>
-        <HeroTitle text="Todas as ferramentas do editor, em um só app." />
+        <HeroTitle text="Todas as ferramentas. Um app." />
         <Reveal delay={620} className="mt-6 max-w-2xl">
-          <p className="text-lg text-zinc-400">
-            Baixe, converta, limpe o áudio, remova fundos, aumente a resolução, reenquadre rostos e gere legendas. Tudo processado
-            no seu computador, sem enviar seus arquivos para lugar nenhum.
+          <p className="text-lg text-white [text-shadow:0_1px_14px_rgba(0,0,0,1),0_0_4px_rgba(0,0,0,0.9)]">
+            Baixe, converta, limpe áudio, remova fundo, reenquadre e legende. Tudo no seu computador.
           </p>
         </Reveal>
         <Reveal delay={740} className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -114,12 +114,12 @@ function Hero() {
             Assinar Pro · <span className="opacity-70 line-through">R$ {PRICE.regular}</span> R$ {PRICE.launch}/mês
             <i className="fi-rr-arrow-small-right text-base" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" href="#baixar">
+          <Button variant="ghost" href="#baixar" className="!bg-zinc-950">
             Baixar grátis
           </Button>
         </Reveal>
         <Reveal delay={860} className="mt-4">
-          <p className="text-xs text-zinc-500">Desconto de inauguração. O plano grátis tem todas as ferramentas, com limites diários.</p>
+          <p className="text-xs text-zinc-200 [text-shadow:0_1px_8px_rgba(0,0,0,1)]">Plano grátis disponível · desconto de inauguração no Pro</p>
         </Reveal>
       </div>
     </section>
