@@ -1,0 +1,7 @@
+/* Same design system as the app: tokens, fonts, panels, buttons, reveal motion. */
+@import '../../web/src/index.css';
+@source '../../web/src/components';
+
+html {
+  scroll-behavior: smooth;
+}
