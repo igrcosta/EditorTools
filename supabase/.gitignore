@@ -1,0 +1,5 @@
+# Local CLI state and secrets: never commit.
+.temp/
+.branches/
+.env
+.env.*

@@ -1,6 +1,6 @@
 {
-  "supabaseUrl": "",
-  "supabaseAnonKey": "",
-  "limitsPublicKey": "",
+  "supabaseUrl": "https://demfmoiphkzusvjidfww.supabase.co",
+  "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWZtb2lwaGt6dXN2amlkZnd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyOTU0MzAsImV4cCI6MjEwNjg3MTQzMH0.a74OZDItttrekhOWfvGFO8OX6nQaHPAeklvX7rVrF_k",
+  "limitsPublicKey": "MCowBQYDK2VwAyEAmrYakyhVr+7WhKXFumxeMjBKq38yp68gKUJHi3Bm8C4=",
   "externalHosts": []
 }

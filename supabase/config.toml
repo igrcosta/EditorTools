@@ -60,3 +60,7 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# Kiwify cannot send a Supabase JWT; the request is authenticated by its HMAC signature instead.
+[functions.kiwify-webhook]
+verify_jwt = false

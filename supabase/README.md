@@ -69,3 +69,27 @@ Without `LIMITS_PUBLIC_KEY` the app still works but has **no offline grace** (it
   in the privacy policy.
 - `export_my_data()` returns everything stored about the caller as one JSON document.
 - Rolling back: migrations are forward-only. Take a backup before each production `db push`.
+
+## Kiwify (subscriptions)
+
+Code: `packages/shared/src/kiwify.ts` (payload reading + state machine), `functions/kiwify-webhook`,
+`functions/_shared/kiwify-signature.ts`, migration `20261007100000_kiwify.sql`, simulator
+`scripts/kiwify-sim.ts`.
+
+1. Create the product in Kiwify: recurring subscription, delivery format "Quero apenas processar
+   pagamentos", card + Pix + boleto. Pix/boleto renew manually; Kiwify waits 5 days after the due date
+   and then cancels (the app's grace is the same 5 days).
+2. Apps > Webhooks: URL `https://<project-ref>.supabase.co/functions/v1/kiwify-webhook`, enable the
+   purchase-approved, renewed, late, canceled, refunded and chargeback events, and copy the webhook
+   token. The token is a secret: it goes only into Supabase (never the repo, a chat or a config file).
+3. `supabase secrets set "KIWIFY_WEBHOOK_TOKEN=..." "KIWIFY_PRODUCT_IDS=<product id>"` (comma-separated
+   ids; **empty grants nothing**), then `supabase db push` and
+   `supabase functions deploy kiwify-webhook --no-verify-jwt --use-api`.
+4. Test without paying: `KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.ts approved you@mail.com --product <id>`
+   then `late`, `canceled`, `refunded`. The app shows the change on the next window focus.
+
+**Unverified until real deliveries are captured** (Apps > Webhooks > logs, one card and one Pix
+purchase): exact event names, whether the payload has a subscription id, the date format/time zone,
+and whether `signature` signs the raw body or re-serialised JSON (both are accepted; `kiwify_events.signature_mode`
+records which matched — then keep only that one). Rejected deliveries are stored only with
+`KIWIFY_LOG_REJECTED=1`.

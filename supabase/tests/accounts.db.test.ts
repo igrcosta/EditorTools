@@ -18,6 +18,7 @@ const MIGRATIONS = path.resolve(__dirname, '../migrations');
 const BOOT = `
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 create schema auth;
 -- Only the columns the migrations and seed.sql touch (GoTrue's real table has many more).
 create table auth.users (
@@ -404,5 +405,76 @@ describe('admin tools', () => {
 
     const audit = await db.query<{ action: string }>('select action from public.admin_audit where admin_id = $1 order by id', [id]);
     expect(audit.rows.map((r) => r.action)).toEqual(['set_own_plan', 'set_own_plan', 'reset_own_quota']);
+  });
+});
+
+describe('Kiwify purchases (kiwify_get_state / kiwify_apply)', () => {
+  const future = () => new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+  const apply = (key: string, email: string, status = 'active', until: string | null = future()) =>
+    rpc('kiwify_apply', key, email, 'prod-1', 'pro', status, until);
+
+  it('attaches a purchase to the account with that VERIFIED e-mail, and it grants Pro', async () => {
+    const id = await newUser('kw-buyer@test.dev');
+    expect(await apply('sub-a', ' KW-Buyer@Test.dev ')).toBe('subscription');
+    const e = await asUser(id, () => rpc('get_entitlements'));
+    expect(e).toMatchObject({ plan: 'pro', status: 'active', quota: { limit: null } });
+  });
+
+  it('never attaches to an address that was not confirmed', async () => {
+    await newUser('unconfirmed@test.dev', false);
+    expect(await apply('sub-b', 'unconfirmed@test.dev')).toBe('pending');
+  });
+
+  it('keeps a purchase made before signing up and hands it over at the first sign-in', async () => {
+    expect(await apply('sub-c', 'later@test.dev')).toBe('pending');
+    const id = await newUser('later@test.dev');
+    expect((await asUser(id, () => rpc('get_entitlements'))).plan).toBe('free');
+    expect(await asUser(id, () => rpc('claim_pending_entitlements'))).toBe(1);
+    expect((await asUser(id, () => rpc('get_entitlements'))).plan).toBe('pro');
+  });
+
+  it('updates the same subscription on later events instead of adding rows', async () => {
+    const id = await newUser('renew@test.dev');
+    await apply('sub-d', 'renew@test.dev');
+    await apply('sub-d', 'renew@test.dev', 'past_due');
+    await apply('sub-d', 'renew@test.dev', 'canceled');
+    const rows = await db.query<{ status: string }>('select status from public.subscriptions where user_id = $1', [id]);
+    expect(rows.rows).toEqual([{ status: 'canceled' }]);
+  });
+
+  it('a canceled subscription keeps Pro until the paid period ends, then stops', async () => {
+    const id = await newUser('cancel@test.dev');
+    await apply('sub-e', 'cancel@test.dev', 'canceled');
+    expect((await asUser(id, () => rpc('get_entitlements'))).plan).toBe('pro');
+    await apply('sub-e', 'cancel@test.dev', 'canceled', new Date(Date.now() - 1000).toISOString());
+    expect((await asUser(id, () => rpc('get_entitlements'))).plan).toBe('free');
+  });
+
+  it.each(['refunded', 'chargeback'])('%s takes Pro away at once', async (status) => {
+    const id = await newUser(`${status}@test.dev`);
+    await apply(`sub-${status}`, `${status}@test.dev`);
+    await apply(`sub-${status}`, `${status}@test.dev`, status, new Date().toISOString());
+    expect((await asUser(id, () => rpc('get_entitlements'))).plan).toBe('free');
+  });
+
+  it('reports the stored state for a key', async () => {
+    await apply('sub-f', 'state@test.dev', 'past_due');
+    const r = await db.query<{ status: string }>(`select * from public.kiwify_get_state('sub-f')`);
+    expect(r.rows[0].status).toBe('past_due');
+    expect((await db.query(`select * from public.kiwify_get_state('nope')`)).rows).toEqual([]);
+  });
+
+  it('rejects an unknown plan, a bad status and a missing key', async () => {
+    await expect(rpc('kiwify_apply', 'k', 'x@test.dev', 'p', 'enterprise', 'active', null)).rejects.toThrow(/unknown plan/);
+    await expect(rpc('kiwify_apply', 'k', 'x@test.dev', 'p', 'pro', 'weird', null)).rejects.toThrow(/invalid arguments/);
+    await expect(rpc('kiwify_apply', null, 'x@test.dev', 'p', 'pro', 'active', null)).rejects.toThrow(/invalid arguments/);
+  });
+
+  it('is not callable by a signed-in user or the public', async () => {
+    const id = await newUser('hacker@test.dev');
+    await asUser(id, async () => {
+      await expect(rpc('kiwify_apply', 'k', 'hacker@test.dev', 'p', 'pro', 'active', null)).rejects.toThrow(/permission denied/);
+      await expect(rpc('kiwify_get_state', 'k')).rejects.toThrow(/permission denied/);
+    });
   });
 });
