@@ -74,7 +74,7 @@ Without `LIMITS_PUBLIC_KEY` the app still works but has **no offline grace** (it
 
 Code: `packages/shared/src/kiwify.ts` (payload reading + state machine), `functions/kiwify-webhook`,
 `functions/_shared/kiwify-signature.ts`, migration `20261007100000_kiwify.sql`, simulator
-`scripts/kiwify-sim.ts`.
+`scripts/kiwify-sim.mts`.
 
 1. Create the product in Kiwify: recurring subscription, delivery format "Quero apenas processar
    pagamentos", card + Pix + boleto. Pix/boleto renew manually; Kiwify waits 5 days after the due date
@@ -85,7 +85,7 @@ Code: `packages/shared/src/kiwify.ts` (payload reading + state machine), `functi
 3. `supabase secrets set "KIWIFY_WEBHOOK_TOKEN=..." "KIWIFY_PRODUCT_IDS=<product id>"` (comma-separated
    ids; **empty grants nothing**), then `supabase db push` and
    `supabase functions deploy kiwify-webhook --no-verify-jwt --use-api`.
-4. Test without paying: `KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.ts approved you@mail.com --product <id>`
+4. Test without paying: `KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.mts approved you@mail.com --product <id>`
    then `late`, `canceled`, `refunded`. The app shows the change on the next window focus.
 
 **Unverified until real deliveries are captured** (Apps > Webhooks > logs, one card and one Pix

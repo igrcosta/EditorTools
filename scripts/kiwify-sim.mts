@@ -3,7 +3,7 @@
 // deliveries (none had been captured when this was written), so a pass here proves our handling,
 // not Kiwify's exact format.
 //
-//   KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.ts <event> <email> [--product ID] [--url URL]
+//   KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.mts <event> <email> [--product ID] [--url URL]
 //
 // events: approved | renewed | late | canceled | refunded | chargeback
 // The token is read from the environment so it never lands in shell history as an argument.
@@ -29,7 +29,7 @@ const flag = (name: string) => {
 
 const token = process.env.KIWIFY_WEBHOOK_TOKEN;
 if (!event || !EVENTS[event] || !email || !token) {
-  console.error('usage: KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.ts <approved|renewed|late|canceled|refunded|chargeback> <email> [--product ID] [--url URL]');
+  console.error('usage: KIWIFY_WEBHOOK_TOKEN=... npx tsx scripts/kiwify-sim.mts <approved|renewed|late|canceled|refunded|chargeback> <email> [--product ID] [--url URL]');
   process.exit(1);
 }
 
