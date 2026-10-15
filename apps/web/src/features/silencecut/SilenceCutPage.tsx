@@ -16,8 +16,7 @@ import { useVideoPlayback } from '../../lib/useVideoPlayback';
 import { SegmentTimeline } from './SegmentTimeline';
 
 const MODES: SilenceMode[] = ['off', 'gentle', 'balanced', 'aggressive'];
-/** Window sampled around the playhead when the user marks a quiet spot for threshold calibration. */
-const SAMPLE_WINDOW_SECONDS = 1.5;
+const MAX_HISTORY = 50;
 
 export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('silencecut');
@@ -30,6 +29,10 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
   const [segments, setSegments] = useState<TimelineSegment[] | null>(null);
   const [parsing, setParsing] = useState(false);
   const [sampleDb, setSampleDb] = useState<number | null>(null);
+  const [sampleRange, setSampleRange] = useState<TimelineSegment | null>(null);
+  const [selectingSample, setSelectingSample] = useState(false);
+  const [skipCuts, setSkipCuts] = useState(true);
+  const [history, setHistory] = useState<TimelineSegment[][]>([]);
 
   const localUrl = useObjectUrl(file);
   const { videoRef, videoEl, currentTime, duration, playing } = useVideoPlayback();
@@ -38,21 +41,23 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
   const cutBusy = cutRunner.starting || cutRunner.jobActive;
   const meta = cutRunner.job?.status === 'done' ? cutRunner.job.meta : undefined;
 
-  const startAnalyze = (forFile: File, opts?: { sample?: TimelineSegment }) => {
+  const startAnalyze = (forFile: File, opts?: { mode?: SilenceMode; sample?: TimelineSegment | null }) => {
+    // Re-detecting replaces the cuts; keep the previous ones one Undo away.
+    if (segments) setHistory((h) => [...h.slice(-(MAX_HISTORY - 1)), segments]);
     setAnalysis(null);
     setSegments(null);
     if (!opts?.sample) setSampleDb(null);
     const form = new FormData();
-    form.append('mode', mode);
+    form.append('mode', opts?.mode ?? mode);
     if (opts?.sample) form.append('sample', JSON.stringify(opts.sample));
     form.append('file', forFile);
     void analyzeRunner.start('/api/audio/timeline/analyze', form);
   };
 
-  // Auto-detect on drop, same as the old page's instant waveform — no extra click needed.
+  // On drop only the waveform loads (mode 'off'): nothing is cut until the editor picks a silence sample / mode.
   useEffect(() => {
     if (!file) return;
-    startAnalyze(file);
+    startAnalyze(file, { mode: 'off' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
@@ -78,31 +83,57 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
     };
   }, [analyzeRunner.job]);
 
-  const onFile = (f: File) => {
-    setFile(f);
-    setMode('balanced');
+  const resetEditing = () => {
     setAnalysis(null);
     setSegments(null);
     setSampleDb(null);
+    setSampleRange(null);
+    setSelectingSample(false);
+    setHistory([]);
     analyzeRunner.reset();
     cutRunner.reset();
+  };
+
+  const onFile = (f: File) => {
+    resetEditing();
+    setFile(f);
+    setMode('balanced');
   };
 
   const onChangeFile = () => {
+    resetEditing();
     setFile(null);
-    setAnalysis(null);
-    setSegments(null);
-    setSampleDb(null);
-    analyzeRunner.reset();
-    cutRunner.reset();
   };
 
-  const markSample = () => {
-    if (!file || !duration) return;
-    const start = Math.max(0, currentTime - SAMPLE_WINDOW_SECONDS / 2);
-    const end = Math.min(duration, currentTime + SAMPLE_WINDOW_SECONDS / 2);
-    startAnalyze(file, { sample: { start, end } });
+  const detect = () => {
+    if (!file) return;
+    setSelectingSample(false);
+    startAnalyze(file, { sample: sampleRange });
   };
+
+  const snapshot = () => {
+    if (segments) setHistory((h) => [...h.slice(-(MAX_HISTORY - 1)), segments]);
+  };
+
+  const undo = () => {
+    const prev = history[history.length - 1];
+    if (!prev) return;
+    setHistory((h) => h.slice(0, -1));
+    setSegments(prev);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   useEffect(() => {
     if (analysis?.noiseDb !== undefined) setSampleDb(analysis.noiseDb);
@@ -170,6 +201,11 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
                 thumbnails={analysis.thumbnails}
                 segments={segments}
                 onChangeSegments={setSegments}
+                onEditStart={snapshot}
+                sampleRange={sampleRange}
+                selectingSample={selectingSample}
+                onSampleRange={setSampleRange}
+                skipCuts={skipCuts}
                 disabled={cutBusy}
                 playLabel={t('timeline.play')}
                 pauseLabel={t('timeline.pause')}
@@ -214,20 +250,47 @@ export function SilenceCutPage({ embedded = false }: { embedded?: boolean }) {
               <p className="mt-2 text-xs text-zinc-500">{t(`modeHint.${mode}`)}</p>
 
               {analysis.hasAudio && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button variant="secondary" onClick={markSample} disabled={cutBusy || analyzing || !duration}>
-                    {t('sampleButton')}
-                  </Button>
-                  {sampleDb !== null && (
-                    <span className="text-xs text-zinc-500">{t('thresholdSample', { db: sampleDb })}</span>
-                  )}
-                  <Button
-                    variant="secondary"
-                    onClick={() => file && startAnalyze(file)}
-                    disabled={cutBusy || analyzing || mode === 'off'}
-                  >
-                    {t('detectAgain')}
-                  </Button>
+                <div className="mt-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectingSample((s) => !s)}
+                      disabled={cutBusy || analyzing}
+                    >
+                      {selectingSample ? t('sampleDone') : t('sampleButton')}
+                    </Button>
+                    {sampleRange && (
+                      <button
+                        type="button"
+                        onClick={() => setSampleRange(null)}
+                        disabled={cutBusy || analyzing}
+                        className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200"
+                      >
+                        {t('sampleClear')}
+                      </button>
+                    )}
+                    <Button onClick={detect} disabled={cutBusy || analyzing || mode === 'off'}>
+                      {t('detect')}
+                    </Button>
+                    <Button variant="secondary" onClick={undo} disabled={cutBusy || analyzing || history.length === 0}>
+                      {t('undo')}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    {selectingSample
+                      ? t('sampleSelecting')
+                      : sampleRange
+                        ? t('sampleRange', {
+                            start: formatDuration(Math.round(sampleRange.start)),
+                            end: formatDuration(Math.round(sampleRange.end)),
+                          })
+                        : t('sampleNone')}
+                    {sampleDb !== null && sampleRange && ` · ${t('thresholdSample', { db: sampleDb })}`}
+                  </p>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400">
+                    <input type="checkbox" checked={skipCuts} onChange={(e) => setSkipCuts(e.target.checked)} />
+                    {t('skipCuts')}
+                  </label>
                 </div>
               )}
               {!analysis.hasAudio && <p className="mt-2 text-xs text-zinc-500">{t('noAudioHint')}</p>}

@@ -10,3 +10,5 @@ release/
 Thumbs.db
 # AI models + Real-ESRGAN binary, fetched by scripts/fetch-vendor.mjs
 vendor/
+# Added by code-review-graph
+.code-review-graph/

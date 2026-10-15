@@ -11,6 +11,15 @@ interface Props {
   /** Kept (audible) ranges — sorted, non-overlapping. Everything else is cut. */
   segments: TimelineSegment[];
   onChangeSegments: (segments: TimelineSegment[]) => void;
+  /** Called once before each edit gesture (edge drag, restore, split) so the page can snapshot for undo. */
+  onEditStart?: () => void;
+  /** Range the user marked as "pure silence"; drawn as a band. */
+  sampleRange?: TimelineSegment | null;
+  /** While true, dragging on the track marks the sample range instead of scrubbing. */
+  selectingSample?: boolean;
+  onSampleRange?: (range: TimelineSegment | null) => void;
+  /** While playing, jump over cut ranges so the editor hears the result. */
+  skipCuts?: boolean;
   disabled?: boolean;
   playLabel: string;
   pauseLabel: string;
@@ -187,6 +196,11 @@ export function SegmentTimeline({
   thumbnails,
   segments,
   onChangeSegments,
+  onEditStart,
+  sampleRange = null,
+  selectingSample = false,
+  onSampleRange,
+  skipCuts = false,
   disabled,
   playLabel,
   pauseLabel,
@@ -198,6 +212,7 @@ export function SegmentTimeline({
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const sampleAnchor = useRef<number | null>(null);
   const scrubbing = useRef(false);
   const wasPlayingBeforeScrub = useRef(false);
   const zoomInitialized = useRef(false);
@@ -258,8 +273,24 @@ export function SegmentTimeline({
     return Math.min(duration, Math.max(0, (clientX - rect.left) / pxPerSec));
   };
 
+  // Playback skips cut ranges: inside a gap, jump to the next kept start (or stop at the end).
+  useEffect(() => {
+    if (!skipCuts || !playing || !mediaEl || segments.length === 0) return;
+    if (segments.some((s) => currentTime >= s.start && currentTime < s.end)) return;
+    const next = segments.find((s) => s.start > currentTime);
+    if (next) mediaEl.currentTime = next.start;
+    else mediaEl.pause();
+  }, [skipCuts, playing, mediaEl, segments, currentTime]);
+
   const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (disabled || dragRef.current || !mediaEl) return;
+    if (selectingSample && onSampleRange) {
+      const at = clientXToSeconds(e.clientX);
+      sampleAnchor.current = at;
+      onSampleRange({ start: at, end: at });
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     scrubbing.current = true;
     wasPlayingBeforeScrub.current = !mediaEl.paused;
     mediaEl.pause();
@@ -268,11 +299,23 @@ export function SegmentTimeline({
   };
 
   const onTrackPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!scrubbing.current || disabled) return;
+    if (disabled) return;
+    if (sampleAnchor.current !== null && onSampleRange) {
+      const at = clientXToSeconds(e.clientX);
+      onSampleRange({ start: Math.min(sampleAnchor.current, at), end: Math.max(sampleAnchor.current, at) });
+      return;
+    }
+    if (!scrubbing.current) return;
     seekTo(clientXToSeconds(e.clientX));
   };
 
   const onTrackPointerUp = () => {
+    if (sampleAnchor.current !== null) {
+      sampleAnchor.current = null;
+      // A click without a drag is not a sample.
+      if (sampleRange && sampleRange.end - sampleRange.start < 0.1) onSampleRange?.(null);
+      return;
+    }
     if (scrubbing.current && wasPlayingBeforeScrub.current) void mediaEl?.play();
     scrubbing.current = false;
   };
@@ -280,6 +323,7 @@ export function SegmentTimeline({
   const onEdgePointerDown = (e: ReactPointerEvent<Element>, index: number, mode: EdgeMode) => {
     if (disabled) return;
     e.stopPropagation();
+    onEditStart?.();
     const seg = segments[index];
     const lowerBound = index > 0 ? segments[index - 1].end : 0;
     const upperBound = index < segments.length - 1 ? segments[index + 1].start : duration;
@@ -308,6 +352,7 @@ export function SegmentTimeline({
 
   const restoreGap = (gap: Gap) => {
     if (disabled) return;
+    onEditStart?.();
     if (gap.before !== null && gap.after !== null) {
       const next = segments.slice();
       next[gap.before] = { start: segments[gap.before].start, end: segments[gap.after].end };
@@ -333,6 +378,7 @@ export function SegmentTimeline({
     const cutStart = atTime - half;
     const cutEnd = atTime + half;
     if (cutStart - seg.start < MIN_SEGMENT_DURATION || seg.end - cutEnd < MIN_SEGMENT_DURATION) return;
+    onEditStart?.();
     const next = segments.slice();
     next.splice(index, 1, { start: seg.start, end: cutStart }, { start: cutEnd, end: seg.end });
     onChangeSegments(next);
@@ -405,25 +451,34 @@ export function SegmentTimeline({
 
             {/* Segment overlay: cut (dimmed, click to restore) and kept (accent border, drag edges / double-click to cut). */}
             <div className="pointer-events-none absolute inset-0">
-              {gaps.map((gap) => (
+              {sampleRange && sampleRange.end > sampleRange.start && (
                 <div
-                  key={`gap-${gap.start}`}
+                  className="absolute inset-y-0 border-x-2 border-sky-400 bg-sky-400/25"
+                  style={{
+                    left: sampleRange.start * pxPerSec,
+                    width: Math.max(2, (sampleRange.end - sampleRange.start) * pxPerSec),
+                  }}
+                />
+              )}
+              {gaps.map((gap, gi) => (
+                <div
+                  key={`gap-${gi}`}
                   title={cutHint}
                   onClick={() => restoreGap(gap)}
-                  className="pointer-events-auto absolute inset-y-0 cursor-pointer bg-black/60 [background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.06)_0_6px,transparent_6px_12px)] hover:bg-black/45"
+                  className={`${selectingSample ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-y-0 cursor-pointer bg-black/60 [background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.06)_0_6px,transparent_6px_12px)] hover:bg-black/45`}
                   style={{ left: gap.start * pxPerSec, width: Math.max(1, (gap.end - gap.start) * pxPerSec) }}
                 />
               ))}
               {segments.map((seg, i) => (
                 <div
-                  key={`seg-${seg.start}`}
+                  key={`seg-${i}`}
                   title={keptHint}
                   onDoubleClick={(e) => {
                     const rect = trackRef.current?.getBoundingClientRect();
                     if (!rect) return;
                     splitSegment(i, (e.clientX - rect.left) / pxPerSec);
                   }}
-                  className="pointer-events-auto absolute inset-y-0 cursor-text border-y-2 border-accent/70"
+                  className={`${selectingSample ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-y-0 cursor-text border-y-2 border-accent/70`}
                   style={{ left: seg.start * pxPerSec, width: Math.max(1, (seg.end - seg.start) * pxPerSec) }}
                 >
                   <div
@@ -431,14 +486,14 @@ export function SegmentTimeline({
                     onPointerMove={onEdgePointerMove}
                     onPointerUp={onEdgePointerUp}
                     onPointerCancel={onEdgePointerUp}
-                    className="pointer-events-auto absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-accent/80"
+                    className={`${selectingSample ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-y-0 left-0 w-2.5 cursor-ew-resize bg-accent/80`}
                   />
                   <div
                     onPointerDown={(e) => onEdgePointerDown(e, i, 'end')}
                     onPointerMove={onEdgePointerMove}
                     onPointerUp={onEdgePointerUp}
                     onPointerCancel={onEdgePointerUp}
-                    className="pointer-events-auto absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-accent/80"
+                    className={`${selectingSample ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-y-0 right-0 w-2.5 cursor-ew-resize bg-accent/80`}
                   />
                 </div>
               ))}
